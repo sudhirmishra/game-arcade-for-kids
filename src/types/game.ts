@@ -2,7 +2,7 @@
  * Game definitions, sticker achievements, and shared game types.
  */
 
-export type GameId = 'tictactoe' | 'memory' | 'fallingblocks';
+export type GameId = 'colordash' | 'jellybounce' | 'tictactoe' | 'memory' | 'fallingblocks';
 
 export interface GameMetadata {
   id: GameId;
@@ -25,6 +25,26 @@ export interface StickerAchievement {
 }
 
 export const ARCADE_GAMES: GameMetadata[] = [
+  {
+    id: 'colordash',
+    title: 'Chameleon Color Dash',
+    subtitle: 'Endless Color Mixing Runner',
+    description: 'Sprint through the jungle canopy! Mix primary colors (Red, Yellow, Blue) into secondary blends (Orange, Green, Purple) to camouflage across matching vines. Catch rainbow bugs for Disco Mode!',
+    playerMode: '1 Player',
+    targetAge: 'Ages 4-10',
+    accentColor: '#10b981',
+    skills: ['Color Theory', 'Rapid Reflexes', 'Hand-Eye Coordination'],
+  },
+  {
+    id: 'jellybounce',
+    title: 'Jelly Bounce Lab',
+    subtitle: 'Trampoline Physics & Bubbles',
+    description: 'Draw bouncy rainbow trampoline lines with your finger or mouse! Guide the cute googly-eyed jelly past obstacles, float in soap bubbles, collect stars, and bounce straight into the candy jar.',
+    playerMode: '1 Player',
+    targetAge: 'Ages 5-12',
+    accentColor: '#ec4899',
+    skills: ['Physics Angles', 'Spatial Drawing', 'Problem Solving'],
+  },
   {
     id: 'tictactoe',
     title: 'Tic Tac Toe Duo',

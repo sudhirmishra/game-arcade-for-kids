@@ -3,6 +3,8 @@ import { GameId, ARCADE_GAMES, INITIAL_STICKERS, StickerAchievement } from './ty
 import { TicTacToeGame } from './components/games/TicTacToeGame';
 import { MemoryGame } from './components/games/MemoryGame';
 import { FallingBlocksGame } from './components/games/FallingBlocksGame';
+import { JellyBounceLabGame } from './components/games/JellyBounceLabGame';
+import { ChameleonColorDashGame } from './components/games/ChameleonColorDashGame';
 import { GameCard } from './components/GameCard';
 import { StickerModal } from './components/StickerModal';
 import { AudioControls } from './components/AudioControls';
@@ -74,12 +76,15 @@ export default function App() {
   };
 
   const handleGameWin = (gameId: GameId) => {
-    if (gameId === 'tictactoe') {
+    if (gameId === 'colordash') {
+      unlockSticker('curious_explorer');
+    } else if (gameId === 'jellybounce') {
+      unlockSticker('stack_master');
+    } else if (gameId === 'tictactoe') {
       unlockSticker('tic_win');
     } else if (gameId === 'memory') {
       unlockSticker('memory_ace');
     } else if (gameId === 'fallingblocks') {
-      unlockSticker('stack_master');
       unlockSticker('combo_king');
     }
   };
@@ -92,7 +97,7 @@ export default function App() {
 
   const pickRandomGame = () => {
     sound.playTap(640);
-    const options: GameId[] = ['tictactoe', 'memory', 'fallingblocks'];
+    const options: GameId[] = ['colordash', 'jellybounce', 'tictactoe', 'memory', 'fallingblocks'];
     const chosen = options[Math.floor(Math.random() * options.length)];
     setActiveGameId(chosen);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -129,6 +134,22 @@ export default function App() {
               }`}
             >
               All Games
+            </button>
+            <button
+              onClick={() => selectGame('colordash')}
+              className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
+                activeGameId === 'colordash' ? 'text-emerald-600 font-bold' : ''
+              }`}
+            >
+              Color Dash
+            </button>
+            <button
+              onClick={() => selectGame('jellybounce')}
+              className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
+                activeGameId === 'jellybounce' ? 'text-rose-600 font-bold' : ''
+              }`}
+            >
+              Jelly Bounce
             </button>
             <button
               onClick={() => selectGame('tictactoe')}
@@ -234,6 +255,18 @@ export default function App() {
 
             {/* Active Game Canvas Component */}
             <div className="w-full">
+              {activeGameId === 'colordash' && (
+                <ChameleonColorDashGame
+                  onGamePlay={() => handleGamePlay('colordash')}
+                  onGameWin={() => handleGameWin('colordash')}
+                />
+              )}
+              {activeGameId === 'jellybounce' && (
+                <JellyBounceLabGame
+                  onGamePlay={() => handleGamePlay('jellybounce')}
+                  onGameWin={() => handleGameWin('jellybounce')}
+                />
+              )}
               {activeGameId === 'tictactoe' && (
                 <TicTacToeGame
                   onGamePlay={() => handleGamePlay('tictactoe')}
@@ -274,26 +307,38 @@ export default function App() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-blue-100 font-normal leading-relaxed mb-6">
-                  Powered by <strong>PixiJS</strong> graphics and 2D physics. Play pass-and-play local Tic Tac Toe with friends, test memory recall with colorful flip cards, or tumble whimsical critters in a physics toy box!
+                  Powered by <strong>PixiJS v8</strong> graphics and 2D physics. Dash with color-mixing chameleons, draw bouncy rainbow trampolines, play pass-and-play local Tic Tac Toe, flip animal cards, and tumble whimsical physics critters!
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <button
-                    onClick={() => selectGame('tictactoe')}
-                    className="flex items-center gap-2 px-5 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-blue-50 transition-all shadow-xs active:scale-95"
+                    onClick={() => selectGame('colordash')}
+                    className="flex items-center gap-2 px-5 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-emerald-50 transition-all shadow-xs active:scale-95"
                   >
-                    <span>Play 2-Player Tic Tac Toe</span>
+                    <span>Play Color Dash</span>
                     <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => selectGame('jellybounce')}
+                    className="flex items-center gap-2 px-5 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-xl transition-all shadow-xs active:scale-95"
+                  >
+                    <span>Jelly Bounce Lab</span>
+                  </button>
+                  <button
+                    onClick={() => selectGame('tictactoe')}
+                    className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 transition-all active:scale-95"
+                  >
+                    <span>Tic Tac Toe</span>
                   </button>
                   <button
                     onClick={() => {
                       sound.playTap(480);
                       setIsStickerModalOpen(true);
                     }}
-                    className="flex items-center gap-2 px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-semibold rounded-xl border border-white/20 transition-all active:scale-95"
+                    className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 transition-all active:scale-95"
                   >
                     <Award className="w-4 h-4 text-amber-300" />
-                    <span>View Sticker Book ({unlockedStickerCount}/6)</span>
+                    <span>Sticker Book ({unlockedStickerCount}/6)</span>
                   </button>
                 </div>
               </div>
@@ -310,7 +355,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {ARCADE_GAMES.map((game) => (
                   <GameCard key={game.id} game={game} onSelect={selectGame} />
                 ))}

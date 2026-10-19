@@ -36,6 +36,14 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
   const appRef = useRef<Application | null>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
   const runnerRef = useRef<Matter.Runner | null>(null);
+  const pedestalBodyRef = useRef<Matter.Body | null>(null);
+  const pedestalGfxRef = useRef<Graphics | null>(null);
+
+  // References to avoid recreating WebGL context
+  const onGameWinRef = useRef(onGameWin);
+  onGameWinRef.current = onGameWin;
+  const onGamePlayRef = useRef(onGamePlay);
+  onGamePlayRef.current = onGamePlay;
 
   // Maps Matter body ID to Pixi Container & metadata
   const critterMapRef = useRef<
@@ -46,8 +54,6 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         body: Matter.Body;
         type: CritterType;
         pupils: Graphics[];
-        eyeContainer: Container;
-        faceGfx: Graphics;
       }
     >
   >(new Map());
@@ -58,10 +64,16 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
 
   // Game state
   const [mode, setMode] = useState<GameMode>('match');
+  const modeRef = useRef<GameMode>(mode);
+  modeRef.current = mode;
+
   const [score, setScore] = useState<number>(0);
   const [stackedCount, setStackedCount] = useState<number>(0);
   const [maxHeight, setMaxHeight] = useState<number>(0);
   const [nextCritter, setNextCritter] = useState<CritterType>(CRITTER_TYPES[0]);
+  const nextCritterRef = useRef<CritterType>(CRITTER_TYPES[0]);
+  nextCritterRef.current = nextCritter;
+
   const [comboCount, setComboCount] = useState<number>(0);
   const [droppedTotal, setDroppedTotal] = useState<number>(0);
 
@@ -78,7 +90,9 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
   // Pick random next critter
   const pickNextCritter = () => {
     const randomIdx = Math.floor(Math.random() * CRITTER_TYPES.length);
-    setNextCritter(CRITTER_TYPES[randomIdx]);
+    const chosen = CRITTER_TYPES[randomIdx];
+    setNextCritter(chosen);
+    nextCritterRef.current = chosen;
   };
 
   // Create Matter.js body based on shape
@@ -106,7 +120,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         density: 0.0025,
       });
     } else {
-      // Star/polygon
+      // Star polygon
       body = Matter.Bodies.polygon(x, y, 5, critter.size, {
         chamfer: { radius: 6 },
         restitution: 0.55,
@@ -115,13 +129,12 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
       });
     }
 
-    // Attach custom data
     (body as unknown as { critterData: CritterType }).critterData = critter;
     return body;
   };
 
   // Create PixiJS visual representation with googly animated eyes
-  const createCritterVisual = (critter: CritterType): { container: Container; pupils: Graphics[]; eyeContainer: Container; faceGfx: Graphics } => {
+  const createCritterVisual = (critter: CritterType): { container: Container; pupils: Graphics[] } => {
     const container = new Container();
 
     const bodyGfx = new Graphics();
@@ -211,51 +224,11 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
     container.addChild(eyeContainer);
     container.addChild(faceGfx);
 
-    // Make interactive for popping in match mode
     container.eventMode = 'static';
     container.cursor = 'pointer';
 
-    return { container, pupils, eyeContainer, faceGfx };
+    return { container, pupils };
   };
-
-  // Drop active critter at X coordinate
-  const dropCritter = useCallback(
-    (targetX?: number) => {
-      if (!engineRef.current || !appRef.current) return;
-
-      onGamePlay?.();
-      sound.playTap(480);
-
-      const spawnX = Math.max(50, Math.min(430, targetX ?? dropperXRef.current));
-      const spawnY = 45;
-
-      const body = createCritterBody(spawnX, spawnY, nextCritter);
-      Matter.Composite.add(engineRef.current.world, body);
-
-      const { container, pupils, eyeContainer, faceGfx } = createCritterVisual(nextCritter);
-      container.x = spawnX;
-      container.y = spawnY;
-      appRef.current.stage.addChild(container);
-
-      critterMapRef.current.set(body.id, {
-        container,
-        body,
-        type: nextCritter,
-        pupils,
-        eyeContainer,
-        faceGfx,
-      });
-
-      // Tap to pop handler in Match Mode
-      container.on('pointerdown', () => {
-        handleCritterTap(body.id);
-      });
-
-      setDroppedTotal((prev) => prev + 1);
-      pickNextCritter();
-    },
-    [nextCritter, onGamePlay]
-  );
 
   // Pop matching critters connected together
   const handleCritterTap = (bodyId: number) => {
@@ -275,14 +248,13 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         const dx = body.position.x - clicked.body.position.x;
         const dy = body.position.y - clicked.body.position.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        // Touching if distance is within combined radii
         if (dist < clicked.type.size + type.size + 15) {
           toPop.push(body.id);
         }
       }
     });
 
-    if (toPop.length >= 2 || mode === 'sandbox') {
+    if (toPop.length >= 2 || modeRef.current === 'sandbox') {
       sound.playPop();
 
       // Burst points
@@ -307,7 +279,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
             y: clicked.body.position.y / 560,
           },
         });
-        onGameWin?.();
+        onGameWinRef.current?.();
       }
 
       // Remove popped critters from world and stage
@@ -328,6 +300,41 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
       });
     }
   };
+
+  // Drop active critter at X coordinate
+  const dropCritter = useCallback((targetX?: number) => {
+    if (!engineRef.current || !appRef.current) return;
+
+    onGamePlayRef.current?.();
+    sound.playTap(480);
+
+    const critterToSpawn = nextCritterRef.current;
+    const spawnX = Math.max(50, Math.min(430, targetX ?? dropperXRef.current));
+    const spawnY = 45;
+
+    const body = createCritterBody(spawnX, spawnY, critterToSpawn);
+    Matter.Composite.add(engineRef.current.world, body);
+
+    const { container, pupils } = createCritterVisual(critterToSpawn);
+    container.x = spawnX;
+    container.y = spawnY;
+    appRef.current.stage.addChild(container);
+
+    critterMapRef.current.set(body.id, {
+      container,
+      body,
+      type: critterToSpawn,
+      pupils,
+    });
+
+    // Tap to pop handler in Match Mode
+    container.on('pointerdown', () => {
+      handleCritterTap(body.id);
+    });
+
+    setDroppedTotal((prev) => prev + 1);
+    pickNextCritter();
+  }, []);
 
   // Shake / Stir the toy box
   const shakeBox = () => {
@@ -362,11 +369,44 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
     pickNextCritter();
   };
 
-  // Pixi & Matter Setup
+  // Handle Mode Switch
+  const switchMode = (newMode: GameMode) => {
+    sound.playTap();
+    setMode(newMode);
+    modeRef.current = newMode;
+
+    if (!engineRef.current) return;
+
+    // Manage pedestal in Tower Mode
+    if (newMode === 'tower') {
+      if (!pedestalBodyRef.current) {
+        pedestalBodyRef.current = Matter.Bodies.rectangle(240, 525, 180, 20, {
+          isStatic: true,
+          friction: 0.9,
+        });
+        Matter.Composite.add(engineRef.current.world, pedestalBodyRef.current);
+      }
+      if (pedestalGfxRef.current) {
+        pedestalGfxRef.current.visible = true;
+      }
+    } else {
+      if (pedestalBodyRef.current) {
+        Matter.Composite.remove(engineRef.current.world, pedestalBodyRef.current);
+        pedestalBodyRef.current = null;
+      }
+      if (pedestalGfxRef.current) {
+        pedestalGfxRef.current.visible = false;
+      }
+    }
+
+    resetGame();
+  };
+
+  // Initialize Pixi & Matter Engine ONCE on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let destroyed = false;
+    let isDestroyed = false;
     const stageWidth = 480;
     const stageHeight = 560;
 
@@ -388,17 +428,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
       isStatic: true,
     });
 
-    // In Tower Mode: add an elevated center pedestal
-    let pedestal: Matter.Body | null = null;
-    if (mode === 'tower') {
-      pedestal = Matter.Bodies.rectangle(stageWidth / 2, stageHeight - 35, 180, 20, {
-        isStatic: true,
-        friction: 0.9,
-      });
-      Matter.Composite.add(engine.world, [ground, leftWall, rightWall, pedestal]);
-    } else {
-      Matter.Composite.add(engine.world, [ground, leftWall, rightWall]);
-    }
+    Matter.Composite.add(engine.world, [ground, leftWall, rightWall]);
 
     // Collision sound listener
     Matter.Events.on(engine, 'collisionStart', (evt) => {
@@ -431,7 +461,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         antialias: true,
       })
       .then(() => {
-        if (destroyed || !containerRef.current) return;
+        if (isDestroyed || !containerRef.current) return;
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(app.canvas);
 
@@ -452,15 +482,15 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
           .stroke({ width: 2, color: 0xcbd5e1 });
         stage.addChild(floorGfx);
 
-        // Tower mode pedestal visual
-        if (mode === 'tower') {
-          const pedGfx = new Graphics();
-          pedGfx
-            .roundRect(stageWidth / 2 - 90, stageHeight - 45, 180, 20, 8)
-            .fill({ color: 0x3b82f6 })
-            .stroke({ width: 2, color: 0x1d4ed8 });
-          stage.addChild(pedGfx);
-        }
+        // Pedestal visual for Tower Mode
+        const pedGfx = new Graphics();
+        pedGfx
+          .roundRect(stageWidth / 2 - 90, stageHeight - 45, 180, 20, 8)
+          .fill({ color: 0x3b82f6 })
+          .stroke({ width: 2, color: 0x1d4ed8 });
+        pedGfx.visible = modeRef.current === 'tower';
+        pedestalGfxRef.current = pedGfx;
+        stage.addChild(pedGfx);
 
         // Dropper guide line & crane container
         const dropperContainer = new Container();
@@ -486,7 +516,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         dropperContainer.addChild(craneGfx);
         stage.addChild(dropperContainer);
 
-        // Mouse move listener: move dropper
+        // Pointer move: move dropper and steer googly eyes
         stage.on('pointermove', (evt) => {
           const clampedX = Math.max(50, Math.min(stageWidth - 50, evt.global.x));
           dropperXRef.current = clampedX;
@@ -494,7 +524,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
             dropperGfxRef.current.x = clampedX;
           }
 
-          // Orient critter pupils toward mouse pointer!
+          // Orient critter pupils toward mouse pointer
           critterMapRef.current.forEach(({ container, pupils, type }) => {
             const dx = evt.global.x - container.x;
             const dy = evt.global.y - container.y;
@@ -504,8 +534,10 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
             const offsetY = (dy / dist) * maxPupilOffset;
 
             const eyeSpacing = type.size * 0.38;
-            pupils[0].x = -eyeSpacing + offsetX;
-            pupils[0].y = -3 + offsetY;
+            if (pupils[0]) {
+              pupils[0].x = -eyeSpacing + offsetX;
+              pupils[0].y = -3 + offsetY;
+            }
             if (pupils[1]) {
               pupils[1].x = eyeSpacing + offsetX;
               pupils[1].y = -3 + offsetY;
@@ -513,15 +545,14 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
           });
         });
 
-        // Stage click: drop active critter
+        // Pointer down on canvas: drop critter
         stage.on('pointerdown', (evt) => {
-          // If clicked near bottom and not on a critter, drop
           if (evt.global.y < stageHeight - 60) {
             dropCritter(evt.global.x);
           }
         });
 
-        // 3. Game Ticker: Synchronize Pixi Graphics with Matter.js physical bodies
+        // 3. Game Ticker: Update Pixi Graphics with Matter.js physics coordinates
         app.ticker.add(() => {
           let highestY = stageHeight;
 
@@ -536,20 +567,20 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
           });
 
           // In Tower Mode: calculate height stacked
-          if (mode === 'tower') {
+          if (modeRef.current === 'tower') {
             const currentHeightPx = Math.max(0, Math.round(stageHeight - 45 - highestY));
             setMaxHeight(currentHeightPx);
             setStackedCount(critterMapRef.current.size);
 
             if (critterMapRef.current.size >= 8) {
-              onGameWin?.();
+              onGameWinRef.current?.();
             }
           }
         });
       });
 
     return () => {
-      destroyed = true;
+      isDestroyed = true;
       if (runnerRef.current) {
         Matter.Runner.stop(runnerRef.current);
         runnerRef.current = null;
@@ -565,7 +596,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
       }
       critterMapRef.current.clear();
     };
-  }, [mode, dropCritter, onGameWin]);
+  }, [dropCritter]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
@@ -574,11 +605,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
         {/* Mode switcher */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
           <button
-            onClick={() => {
-              sound.playTap();
-              setMode('match');
-              resetGame();
-            }}
+            onClick={() => switchMode('match')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               mode === 'match' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -588,11 +615,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
           </button>
 
           <button
-            onClick={() => {
-              sound.playTap();
-              setMode('tower');
-              resetGame();
-            }}
+            onClick={() => switchMode('tower')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               mode === 'tower' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -602,11 +625,7 @@ export const FallingBlocksGame: React.FC<FallingBlocksProps> = ({ onGameWin, onG
           </button>
 
           <button
-            onClick={() => {
-              sound.playTap();
-              setMode('sandbox');
-              resetGame();
-            }}
+            onClick={() => switchMode('sandbox')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               mode === 'sandbox' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}

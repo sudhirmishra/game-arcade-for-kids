@@ -31,8 +31,8 @@ const THEMES: ThemeOption[] = [
     oLabel: 'Rocket',
     xEmoji: '⭐',
     oEmoji: '🚀',
-    xColor: 0xf59e0b, // Amber / Gold
-    oColor: 0x3b82f6, // Blue
+    xColor: 0xf59e0b,
+    oColor: 0x3b82f6,
   },
   {
     id: 'pets',
@@ -41,8 +41,8 @@ const THEMES: ThemeOption[] = [
     oLabel: 'Kitten',
     xEmoji: '🐶',
     oEmoji: '🐱',
-    xColor: 0xf97316, // Orange
-    oColor: 0xec4899, // Pink
+    xColor: 0xf97316,
+    oColor: 0xec4899,
   },
   {
     id: 'sweets',
@@ -51,14 +51,20 @@ const THEMES: ThemeOption[] = [
     oLabel: 'Cupcake',
     xEmoji: '🍩',
     oEmoji: '🧁',
-    xColor: 0x8b5cf6, // Purple
-    oColor: 0x10b981, // Emerald
+    xColor: 0x8b5cf6,
+    oColor: 0x10b981,
   },
 ];
 
 export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
+
+  // References to keep Pixi alive without destroying context
+  const cellContainersRef = useRef<Container[]>([]);
+  const cellBgsRef = useRef<Graphics[]>([]);
+  const cellPiecesRef = useRef<Container[]>([]);
+  const lineGraphicRef = useRef<Graphics | null>(null);
 
   // Game state
   const [board, setBoard] = useState<CellValue[]>(Array(9).fill(null));
@@ -149,20 +155,16 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
         const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
         setCurrentPlayer(nextPlayer);
 
-        // If Bot mode enabled and next player is O, schedule bot move
         if (isBotEnabled && nextPlayer === 'O') {
           setIsBotThinking(true);
           setTimeout(() => {
-            // Find empty cells
             const emptyIndices = newBoard
               .map((val, idx) => (val === null ? idx : null))
               .filter((val): val is number => val !== null);
 
             if (emptyIndices.length > 0) {
-              // Smart/friendly bot move: check if can win, then block player, else random
               let botChoice = emptyIndices[0];
 
-              // Can bot win?
               for (const idx of emptyIndices) {
                 const test = [...newBoard];
                 test[idx] = 'O';
@@ -172,7 +174,6 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
                 }
               }
 
-              // Can block player?
               if (botChoice === emptyIndices[0]) {
                 for (const idx of emptyIndices) {
                   const test = [...newBoard];
@@ -184,7 +185,6 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
                 }
               }
 
-              // Else choose center or random corner
               if (botChoice === emptyIndices[0] && emptyIndices.includes(4)) {
                 botChoice = 4;
               } else if (botChoice === emptyIndices[0]) {
@@ -229,6 +229,9 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
     [board, currentPlayer, winner, isBotThinking, isBotEnabled, onGamePlay, onGameWin]
   );
 
+  const makeMoveRef = useRef(makeMove);
+  makeMoveRef.current = makeMove;
+
   const resetGame = () => {
     sound.playTap(600);
     setBoard(Array(9).fill(null));
@@ -245,16 +248,17 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
     localStorage.setItem('wonderpix_ttt_scores', JSON.stringify(zero));
   };
 
-  // PixiJS canvas initialization & rendering
+  // 1. Initialize PixiJS canvas ONCE on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let destroyed = false;
+    let isDestroyed = false;
     const app = new Application();
     appRef.current = app;
 
     const boardSize = 480;
-    const cellSize = (boardSize - 40) / 3; // 40px total padding & gaps
+    const gap = 10;
+    const actualCellW = (boardSize - 40 - gap * 2) / 3;
 
     app
       .init({
@@ -266,7 +270,7 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
         antialias: true,
       })
       .then(() => {
-        if (destroyed || !containerRef.current) return;
+        if (isDestroyed || !containerRef.current) return;
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(app.canvas);
 
@@ -280,16 +284,16 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
           .stroke({ width: 3, color: 0xe2e8f0 });
         stage.addChild(bg);
 
-        // Cells container
+        // Grid container
         const gridContainer = new Container();
         gridContainer.x = 20;
         gridContainer.y = 20;
         stage.addChild(gridContainer);
 
-        const gap = 10;
-        const actualCellW = (boardSize - 40 - gap * 2) / 3;
+        cellContainersRef.current = [];
+        cellBgsRef.current = [];
+        cellPiecesRef.current = [];
 
-        // Draw 9 cells
         for (let i = 0; i < 9; i++) {
           const row = Math.floor(i / 3);
           const col = i % 3;
@@ -300,110 +304,127 @@ export const TicTacToeGame: React.FC<TicTacToeProps> = ({ onGameWin, onGamePlay 
           cellContainer.x = cellX;
           cellContainer.y = cellY;
           cellContainer.eventMode = 'static';
-          cellContainer.cursor = board[i] === null && !winner ? 'pointer' : 'default';
+          cellContainer.cursor = 'pointer';
 
           const cellBg = new Graphics();
-          const isWinningCell = winningLine?.includes(i);
+          cellBg
+            .roundRect(0, 0, actualCellW, actualCellW, 18)
+            .fill({ color: 0xffffff })
+            .stroke({ width: 2, color: 0xe2e8f0 });
 
-          if (isWinningCell) {
-            cellBg
-              .roundRect(0, 0, actualCellW, actualCellW, 18)
-              .fill({ color: 0xfef08a }) // Soft celebratory yellow
-              .stroke({ width: 4, color: 0xeab308 });
-          } else {
-            cellBg
-              .roundRect(0, 0, actualCellW, actualCellW, 18)
-              .fill({ color: 0xffffff })
-              .stroke({ width: 2, color: 0xe2e8f0 });
-          }
+          const pieceContainer = new Container();
+          pieceContainer.x = actualCellW / 2;
+          pieceContainer.y = actualCellW / 2;
 
           cellContainer.addChild(cellBg);
-
-          // Cell hover effect
-          cellContainer.on('pointerover', () => {
-            if (board[i] === null && !winner) {
-              cellBg.clear();
-              cellBg
-                .roundRect(0, 0, actualCellW, actualCellW, 18)
-                .fill({ color: 0xf8fafc })
-                .stroke({ width: 3, color: 0x94a3b8 });
-            }
-          });
-
-          cellContainer.on('pointerout', () => {
-            if (!winningLine?.includes(i)) {
-              cellBg.clear();
-              cellBg
-                .roundRect(0, 0, actualCellW, actualCellW, 18)
-                .fill({ color: 0xffffff })
-                .stroke({ width: 2, color: 0xe2e8f0 });
-            }
-          });
+          cellContainer.addChild(pieceContainer);
 
           cellContainer.on('pointerdown', () => {
-            makeMove(i);
+            makeMoveRef.current(i);
           });
 
-          // Draw piece if occupied
-          const val = board[i];
-          if (val) {
-            const pieceContainer = new Container();
-            pieceContainer.x = actualCellW / 2;
-            pieceContainer.y = actualCellW / 2;
-
-            const emoji = val === 'X' ? currentTheme.xEmoji : currentTheme.oEmoji;
-            const textStyle = new TextStyle({
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: actualCellW * 0.46,
-              align: 'center',
-            });
-            const text = new Text({ text: emoji, style: textStyle });
-            text.anchor.set(0.5);
-            pieceContainer.addChild(text);
-
-            // Subtle bounce glow ring
-            const ring = new Graphics();
-            ring
-              .circle(0, 0, actualCellW * 0.38)
-              .stroke({ width: 3, color: val === 'X' ? currentTheme.xColor : currentTheme.oColor, alpha: 0.25 });
-            pieceContainer.addChild(ring);
-
-            cellContainer.addChild(pieceContainer);
-          }
-
           gridContainer.addChild(cellContainer);
+
+          cellContainersRef.current.push(cellContainer);
+          cellBgsRef.current.push(cellBg);
+          cellPiecesRef.current.push(pieceContainer);
         }
 
-        // Draw winning line if game over
-        if (winningLine && winningLine.length === 3) {
-          const lineGraphic = new Graphics();
-          const startCol = winningLine[0] % 3;
-          const startRow = Math.floor(winningLine[0] / 3);
-          const endCol = winningLine[2] % 3;
-          const endRow = Math.floor(winningLine[2] / 3);
+        const lineGraphic = new Graphics();
+        lineGraphicRef.current = lineGraphic;
+        gridContainer.addChild(lineGraphic);
 
-          const x1 = startCol * (actualCellW + gap) + actualCellW / 2;
-          const y1 = startRow * (actualCellW + gap) + actualCellW / 2;
-          const x2 = endCol * (actualCellW + gap) + actualCellW / 2;
-          const y2 = endRow * (actualCellW + gap) + actualCellW / 2;
-
-          lineGraphic
-            .moveTo(x1, y1)
-            .lineTo(x2, y2)
-            .stroke({ width: 8, color: 0xeab308, alpha: 0.85, cap: 'round' });
-
-          gridContainer.addChild(lineGraphic);
-        }
+        updateBoardDisplay();
       });
 
     return () => {
-      destroyed = true;
+      isDestroyed = true;
       if (appRef.current) {
         appRef.current.destroy(true, { children: true });
         appRef.current = null;
       }
     };
-  }, [board, winningLine, winner, currentTheme, makeMove]);
+  }, []);
+
+  // 2. Update board display in place without destroying WebGL application
+  const updateBoardDisplay = useCallback(() => {
+    const boardSize = 480;
+    const gap = 10;
+    const actualCellW = (boardSize - 40 - gap * 2) / 3;
+
+    for (let i = 0; i < 9; i++) {
+      const cellBg = cellBgsRef.current[i];
+      const pieceContainer = cellPiecesRef.current[i];
+      const cellContainer = cellContainersRef.current[i];
+      if (!cellBg || !pieceContainer || !cellContainer) continue;
+
+      const isWinningCell = winningLine?.includes(i);
+      cellBg.clear();
+      if (isWinningCell) {
+        cellBg
+          .roundRect(0, 0, actualCellW, actualCellW, 18)
+          .fill({ color: 0xfef08a })
+          .stroke({ width: 4, color: 0xeab308 });
+      } else {
+        cellBg
+          .roundRect(0, 0, actualCellW, actualCellW, 18)
+          .fill({ color: 0xffffff })
+          .stroke({ width: 2, color: 0xe2e8f0 });
+      }
+
+      cellContainer.cursor = board[i] === null && !winner ? 'pointer' : 'default';
+
+      // Update piece content
+      pieceContainer.removeChildren();
+      const val = board[i];
+      if (val) {
+        const emoji = val === 'X' ? currentTheme.xEmoji : currentTheme.oEmoji;
+        const textStyle = new TextStyle({
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: actualCellW * 0.46,
+          align: 'center',
+        });
+        const text = new Text({ text: emoji, style: textStyle });
+        text.anchor.set(0.5);
+        pieceContainer.addChild(text);
+
+        const ring = new Graphics();
+        ring
+          .circle(0, 0, actualCellW * 0.38)
+          .stroke({
+            width: 3,
+            color: val === 'X' ? currentTheme.xColor : currentTheme.oColor,
+            alpha: 0.25,
+          });
+        pieceContainer.addChild(ring);
+      }
+    }
+
+    // Winning line graphic
+    if (lineGraphicRef.current) {
+      lineGraphicRef.current.clear();
+      if (winningLine && winningLine.length === 3) {
+        const startCol = winningLine[0] % 3;
+        const startRow = Math.floor(winningLine[0] / 3);
+        const endCol = winningLine[2] % 3;
+        const endRow = Math.floor(winningLine[2] / 3);
+
+        const x1 = startCol * (actualCellW + gap) + actualCellW / 2;
+        const y1 = startRow * (actualCellW + gap) + actualCellW / 2;
+        const x2 = endCol * (actualCellW + gap) + actualCellW / 2;
+        const y2 = endRow * (actualCellW + gap) + actualCellW / 2;
+
+        lineGraphicRef.current
+          .moveTo(x1, y1)
+          .lineTo(x2, y2)
+          .stroke({ width: 8, color: 0xeab308, alpha: 0.85, cap: 'round' });
+      }
+    }
+  }, [board, winningLine, winner, currentTheme]);
+
+  useEffect(() => {
+    updateBoardDisplay();
+  }, [updateBoardDisplay]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center">

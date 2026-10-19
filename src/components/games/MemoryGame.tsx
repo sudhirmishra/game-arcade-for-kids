@@ -320,15 +320,19 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
     }, 1200);
   };
 
-  // PixiJS Canvas Rendering
-  useEffect(() => {
-    if (!containerRef.current || cards.length === 0) return;
+  const cardContainersRef = useRef<Container[]>([]);
+  const handleCardClickRef = useRef(handleCardClick);
+  handleCardClickRef.current = handleCardClick;
 
-    let destroyed = false;
+  // Initialize PixiJS canvas only when difficulty changes (board size change)
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    let isDestroyed = false;
     const app = new Application();
     appRef.current = app;
 
-    const totalCards = cards.length;
+    const totalCards = getPairCount(difficulty) * 2;
     let cols = 4;
     let rows = 4;
     if (totalCards === 12) {
@@ -357,22 +361,22 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
         antialias: true,
       })
       .then(() => {
-        if (destroyed || !containerRef.current) return;
+        if (isDestroyed || !containerRef.current) return;
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(app.canvas);
 
         const stage = app.stage;
         stage.removeChildren();
 
-        // Background container rounded board
         const bg = new Graphics();
         bg.roundRect(0, 0, totalWidth, totalHeight, 24)
           .fill({ color: 0xffffff })
           .stroke({ width: 2, color: 0xe2e8f0 });
         stage.addChild(bg);
 
-        // Render card nodes
-        cards.forEach((card, idx) => {
+        cardContainersRef.current = [];
+
+        for (let idx = 0; idx < totalCards; idx++) {
           const col = idx % cols;
           const row = Math.floor(idx / cols);
 
@@ -383,146 +387,140 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
           cardContainer.x = cardX;
           cardContainer.y = cardY;
           cardContainer.eventMode = 'static';
-          cardContainer.cursor = (!card.isFlipped && !isLocked) || card.isMatched ? 'pointer' : 'default';
+          cardContainer.cursor = 'pointer';
 
-          // Outer card shape
-          const cardGraphic = new Graphics();
-
-          if (card.isMatched) {
-            // Matched State: Soft cheerful tinted card with gold outline
-            cardGraphic
-              .roundRect(0, 0, cardWidth, cardHeight, 16)
-              .fill({ color: 0xf0fdf4 }) // soft emerald
-              .stroke({ width: 3, color: 0x86efac });
-
-            cardContainer.addChild(cardGraphic);
-
-            // Emoji
-            const emojiStyle = new TextStyle({
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: 38,
-              align: 'center',
-            });
-            const emojiText = new Text({ text: card.emoji, style: emojiStyle });
-            emojiText.anchor.set(0.5);
-            emojiText.x = cardWidth / 2;
-            emojiText.y = cardHeight / 2 - 8;
-            cardContainer.addChild(emojiText);
-
-            // Label text
-            const labelStyle = new TextStyle({
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: 11,
-              fontWeight: 'bold',
-              fill: 0x15803d,
-              align: 'center',
-            });
-            const labelText = new Text({ text: card.label, style: labelStyle });
-            labelText.anchor.set(0.5);
-            labelText.x = cardWidth / 2;
-            labelText.y = cardHeight - 16;
-            cardContainer.addChild(labelText);
-
-            // Checkmark badge in corner
-            const checkBg = new Graphics();
-            checkBg.circle(cardWidth - 14, 14, 8).fill({ color: 0x22c55e });
-            cardContainer.addChild(checkBg);
-          } else if (card.isFlipped) {
-            // Flipped Face Up: Active revealed card
-            cardGraphic
-              .roundRect(0, 0, cardWidth, cardHeight, 16)
-              .fill({ color: 0xffffff })
-              .stroke({ width: 3, color: card.color });
-
-            cardContainer.addChild(cardGraphic);
-
-            // Emoji
-            const emojiStyle = new TextStyle({
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: 40,
-              align: 'center',
-            });
-            const emojiText = new Text({ text: card.emoji, style: emojiStyle });
-            emojiText.anchor.set(0.5);
-            emojiText.x = cardWidth / 2;
-            emojiText.y = cardHeight / 2 - 8;
-            cardContainer.addChild(emojiText);
-
-            // Label
-            const labelStyle = new TextStyle({
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: 11,
-              fontWeight: '600',
-              fill: 0x334155,
-              align: 'center',
-            });
-            const labelText = new Text({ text: card.label, style: labelStyle });
-            labelText.anchor.set(0.5);
-            labelText.x = cardWidth / 2;
-            labelText.y = cardHeight - 16;
-            cardContainer.addChild(labelText);
-          } else {
-            // Face Down Card: Playful patterned card back
-            cardGraphic
-              .roundRect(0, 0, cardWidth, cardHeight, 16)
-              .fill({ color: 0x3b82f6 }) // energetic blue
-              .stroke({ width: 2, color: 0x2563eb });
-
-            // Inner card border pattern
-            const innerBorder = new Graphics();
-            innerBorder
-              .roundRect(5, 5, cardWidth - 10, cardHeight - 10, 12)
-              .stroke({ width: 1.5, color: 0x93c5fd, alpha: 0.6 });
-
-            cardContainer.addChild(cardGraphic);
-            cardContainer.addChild(innerBorder);
-
-            // Center playful symbol (Sparkle star)
-            const starText = new Text({
-              text: '✨',
-              style: new TextStyle({ fontSize: 24, align: 'center' }),
-            });
-            starText.anchor.set(0.5);
-            starText.x = cardWidth / 2;
-            starText.y = cardHeight / 2;
-            cardContainer.addChild(starText);
-
-            // Hover micro-scale feedback
-            cardContainer.on('pointerover', () => {
-              if (!isLocked) {
-                cardGraphic.clear();
-                cardGraphic
-                  .roundRect(0, 0, cardWidth, cardHeight, 16)
-                  .fill({ color: 0x2563eb })
-                  .stroke({ width: 2.5, color: 0x60a5fa });
-              }
-            });
-
-            cardContainer.on('pointerout', () => {
-              cardGraphic.clear();
-              cardGraphic
-                .roundRect(0, 0, cardWidth, cardHeight, 16)
-                .fill({ color: 0x3b82f6 })
-                .stroke({ width: 2, color: 0x2563eb });
-            });
-          }
-
+          const cardIndex = idx;
           cardContainer.on('pointerdown', () => {
-            handleCardClick(idx);
+            handleCardClickRef.current(cardIndex);
           });
 
           stage.addChild(cardContainer);
-        });
+          cardContainersRef.current.push(cardContainer);
+        }
+
+        renderCardVisuals();
       });
 
     return () => {
-      destroyed = true;
+      isDestroyed = true;
       if (appRef.current) {
         appRef.current.destroy(true, { children: true });
         appRef.current = null;
       }
     };
+  }, [difficulty]);
+
+  // Update card visuals in place without destroying WebGL
+  const renderCardVisuals = useCallback(() => {
+    if (cards.length === 0 || cardContainersRef.current.length === 0) return;
+
+    const cardWidth = 86;
+    const cardHeight = 98;
+
+    cards.forEach((card, idx) => {
+      const cardContainer = cardContainersRef.current[idx];
+      if (!cardContainer) return;
+
+      cardContainer.removeChildren();
+      cardContainer.cursor = (!card.isFlipped && !isLocked) || card.isMatched ? 'pointer' : 'default';
+
+      const cardGraphic = new Graphics();
+
+      if (card.isMatched) {
+        cardGraphic
+          .roundRect(0, 0, cardWidth, cardHeight, 16)
+          .fill({ color: 0xf0fdf4 })
+          .stroke({ width: 3, color: 0x86efac });
+
+        cardContainer.addChild(cardGraphic);
+
+        const emojiStyle = new TextStyle({
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: 38,
+          align: 'center',
+        });
+        const emojiText = new Text({ text: card.emoji, style: emojiStyle });
+        emojiText.anchor.set(0.5);
+        emojiText.x = cardWidth / 2;
+        emojiText.y = cardHeight / 2 - 8;
+        cardContainer.addChild(emojiText);
+
+        const labelStyle = new TextStyle({
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: 11,
+          fontWeight: 'bold',
+          fill: 0x15803d,
+          align: 'center',
+        });
+        const labelText = new Text({ text: card.label, style: labelStyle });
+        labelText.anchor.set(0.5);
+        labelText.x = cardWidth / 2;
+        labelText.y = cardHeight - 16;
+        cardContainer.addChild(labelText);
+
+        const checkBg = new Graphics();
+        checkBg.circle(cardWidth - 14, 14, 8).fill({ color: 0x22c55e });
+        cardContainer.addChild(checkBg);
+      } else if (card.isFlipped) {
+        cardGraphic
+          .roundRect(0, 0, cardWidth, cardHeight, 16)
+          .fill({ color: 0xffffff })
+          .stroke({ width: 3, color: card.color });
+
+        cardContainer.addChild(cardGraphic);
+
+        const emojiStyle = new TextStyle({
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: 40,
+          align: 'center',
+        });
+        const emojiText = new Text({ text: card.emoji, style: emojiStyle });
+        emojiText.anchor.set(0.5);
+        emojiText.x = cardWidth / 2;
+        emojiText.y = cardHeight / 2 - 8;
+        cardContainer.addChild(emojiText);
+
+        const labelStyle = new TextStyle({
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: 11,
+          fontWeight: '600',
+          fill: 0x334155,
+          align: 'center',
+        });
+        const labelText = new Text({ text: card.label, style: labelStyle });
+        labelText.anchor.set(0.5);
+        labelText.x = cardWidth / 2;
+        labelText.y = cardHeight - 16;
+        cardContainer.addChild(labelText);
+      } else {
+        cardGraphic
+          .roundRect(0, 0, cardWidth, cardHeight, 16)
+          .fill({ color: 0x3b82f6 })
+          .stroke({ width: 2, color: 0x2563eb });
+
+        const innerBorder = new Graphics();
+        innerBorder
+          .roundRect(5, 5, cardWidth - 10, cardHeight - 10, 12)
+          .stroke({ width: 1.5, color: 0x93c5fd, alpha: 0.6 });
+
+        cardContainer.addChild(cardGraphic);
+        cardContainer.addChild(innerBorder);
+
+        const starText = new Text({
+          text: '✨',
+          style: new TextStyle({ fontSize: 24, align: 'center' }),
+        });
+        starText.anchor.set(0.5);
+        starText.x = cardWidth / 2;
+        starText.y = cardHeight / 2;
+        cardContainer.addChild(starText);
+      }
+    });
   }, [cards, isLocked]);
+
+  useEffect(() => {
+    renderCardVisuals();
+  }, [renderCardVisuals]);
 
   // Format seconds mm:ss
   const formatTime = (secs: number) => {

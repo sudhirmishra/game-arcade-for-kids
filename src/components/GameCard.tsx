@@ -30,6 +30,56 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelect }) => {
         }}
       >
         {/* Handcrafted animated vector game artwork for each game */}
+        {game.id === 'colordash' && (
+          <div className="relative w-48 h-32 flex items-center justify-center">
+            {/* Running Chameleon */}
+            <div className="absolute top-4 left-10 w-14 h-12 bg-emerald-500 rounded-2xl border-2 border-white shadow-md flex items-center justify-center text-2xl group-hover:scale-110 group-hover:rotate-6 transition-transform">
+              🦎
+            </div>
+            {/* Colorful Vine segment */}
+            <div className="absolute bottom-10 left-4 w-40 h-3 bg-emerald-400 rounded-full border border-emerald-300 shadow-xs flex items-center justify-around px-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-200" />
+              <span className="w-2 h-2 rounded-full bg-emerald-200" />
+              <span className="w-2 h-2 rounded-full bg-emerald-200" />
+            </div>
+            {/* Floating Rainbow Bug */}
+            <div className="absolute top-3 right-6 w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 via-amber-400 to-sky-400 border border-white shadow-xs flex items-center justify-center text-xs group-hover:-translate-y-1 transition-transform animate-bounce">
+              ✨
+            </div>
+            {/* Primary color bubbles */}
+            <div className="absolute bottom-2 flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-rose-500 border border-white shadow-2xs" />
+              <span className="w-3 h-3 rounded-full bg-amber-400 border border-white shadow-2xs" />
+              <span className="w-3 h-3 rounded-full bg-sky-500 border border-white shadow-2xs" />
+            </div>
+          </div>
+        )}
+
+        {game.id === 'jellybounce' && (
+          <div className="relative w-48 h-32 flex items-center justify-center">
+            {/* Jelly Character bouncing */}
+            <div className="absolute top-3 left-18 w-12 h-11 bg-rose-500 rounded-2xl border-2 border-white shadow-md flex items-center justify-center text-xl group-hover:scale-110 group-hover:-translate-y-2 transition-transform">
+              🍮
+            </div>
+            {/* Bouncy Rainbow Trampoline Line */}
+            <div
+              className="absolute bottom-10 w-36 h-2.5 rounded-full shadow-sm group-hover:scale-x-105 transition-transform"
+              style={{
+                background:
+                  'linear-gradient(90deg, #ff598f 0%, #fd8a5e 25%, #f4d35e 50%, #2ec4b6 75%, #38bdf8 100%)',
+              }}
+            />
+            {/* Floating Soap Bubble */}
+            <div className="absolute top-2 right-4 w-10 h-10 rounded-full bg-sky-200/40 border-2 border-white/80 shadow-xs flex items-center justify-center text-sm group-hover:translate-y-1 transition-transform">
+              🫧
+            </div>
+            {/* Candy Jar Goal */}
+            <div className="absolute bottom-2 right-6 w-11 h-12 bg-sky-500/30 rounded-xl border-2 border-sky-400 flex items-center justify-center text-lg shadow-xs">
+              🍬
+            </div>
+          </div>
+        )}
+
         {game.id === 'tictactoe' && (
           <div className="relative flex items-center justify-center gap-6">
             <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-blue-200 flex items-center justify-center text-4xl group-hover:scale-110 group-hover:-rotate-6 transition-transform">
