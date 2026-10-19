@@ -1,0 +1,6 @@
+{
+  "name": "WonderPix Kids Arcade",
+  "description": "Interactive 2D browser games for kids built with PixiJS, featuring local 2-player Tic Tac Toe, Memory Card Matcher, and Physics Falling Blocks puzzle.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
