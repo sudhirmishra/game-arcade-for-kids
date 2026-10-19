@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import confetti from 'canvas-confetti';
 import { sound } from '../../sound/soundEffects';
-import { RotateCcw, Lightbulb, Trophy, Sparkles, Clock, Eye } from 'lucide-react';
+import { RotateCcw, Lightbulb, Trophy, Sparkles, Clock, Eye, Volume2 } from 'lucide-react';
 
 interface MemoryGameProps {
   onGameWin?: () => void;
@@ -87,6 +87,7 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
   const [isWon, setIsWon] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [hintsRemaining, setHintsRemaining] = useState<number>(2);
+  const [recentVoice, setRecentVoice] = useState<{ emoji: string; text: string } | null>(null);
 
   // Best score storage
   const [bestScores, setBestScores] = useState<Record<string, number>>(() => {
@@ -175,7 +176,27 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
   const handleCardClick = (index: number) => {
     if (isLocked) return;
     const card = cards[index];
-    if (card.isMatched || card.isFlipped) return;
+    if (card.isMatched) {
+      // Tap matched card anytime to hear its voice!
+      sound.playAnimalVoice(card.label);
+      let animalCallout = `${card.label}!`;
+      const norm = card.label.toLowerCase();
+      if (norm.includes('lion')) animalCallout = 'Roar! Lion!';
+      else if (norm.includes('frog')) animalCallout = 'Ribbit! Frog!';
+      else if (norm.includes('elephant')) animalCallout = 'Trumpet! Elephant!';
+      else if (norm.includes('monkey')) animalCallout = 'Ooh ooh aah aah! Monkey!';
+      else if (norm.includes('owl')) animalCallout = 'Hoo hoo! Owl!';
+      else if (norm.includes('penguin')) animalCallout = 'Honk honk! Penguin!';
+      else if (norm.includes('fox')) animalCallout = 'Yip yip! Fox!';
+      else if (norm.includes('bunny')) animalCallout = 'Hop hop! Bunny!';
+      else if (norm.includes('panda')) animalCallout = 'Happy Panda!';
+      else if (norm.includes('koala')) animalCallout = 'Cute Koala!';
+
+      setRecentVoice({ emoji: card.emoji, text: animalCallout });
+      setTimeout(() => setRecentVoice(null), 2200);
+      return;
+    }
+    if (card.isFlipped) return;
 
     // Start timer on first move
     if (!isGameActive) {
@@ -202,6 +223,27 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
         // MATCH!
         setTimeout(() => {
           sound.playMatch();
+          sound.playAnimalVoice(firstCard.label);
+
+          // Get animal callout phrase
+          let animalCallout = `${firstCard.label}!`;
+          const norm = firstCard.label.toLowerCase();
+          if (norm.includes('lion')) animalCallout = 'Roar! Lion!';
+          else if (norm.includes('frog')) animalCallout = 'Ribbit! Frog!';
+          else if (norm.includes('elephant')) animalCallout = 'Trumpet! Elephant!';
+          else if (norm.includes('monkey')) animalCallout = 'Ooh ooh aah aah! Monkey!';
+          else if (norm.includes('owl')) animalCallout = 'Hoo hoo! Owl!';
+          else if (norm.includes('penguin')) animalCallout = 'Honk honk! Penguin!';
+          else if (norm.includes('fox')) animalCallout = 'Yip yip! Fox!';
+          else if (norm.includes('bunny')) animalCallout = 'Hop hop! Bunny!';
+          else if (norm.includes('panda')) animalCallout = 'Happy Panda!';
+          else if (norm.includes('koala')) animalCallout = 'Cute Koala!';
+
+          setRecentVoice({ emoji: firstCard.emoji, text: animalCallout });
+          setTimeout(() => {
+            setRecentVoice(null);
+          }, 2400);
+
           setCards((prev) =>
             prev.map((c, i) => (i === firstIdx || i === secondIdx ? { ...c, isMatched: true } : c))
           );
@@ -341,7 +383,7 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
           cardContainer.x = cardX;
           cardContainer.y = cardY;
           cardContainer.eventMode = 'static';
-          cardContainer.cursor = !card.isMatched && !card.isFlipped && !isLocked ? 'pointer' : 'default';
+          cardContainer.cursor = (!card.isFlipped && !isLocked) || card.isMatched ? 'pointer' : 'default';
 
           // Outer card shape
           const cardGraphic = new Graphics();
@@ -592,6 +634,15 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ onGameWin, onGamePlay })
 
       {/* PixiJS Game Arena */}
       <div className="flex flex-col items-center">
+        {/* Animal Voice Speech Callout Banner */}
+        {recentVoice && (
+          <div className="mb-4 px-5 py-2.5 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl flex items-center gap-3 shadow-md animate-bounce text-base font-bold">
+            <span className="text-3xl">{recentVoice.emoji}</span>
+            <span className="tracking-wide">{recentVoice.text}</span>
+            <Volume2 className="w-5 h-5 text-amber-600 animate-pulse" />
+          </div>
+        )}
+
         {isWon && (
           <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center max-w-md animate-bounce">
             <div className="flex items-center justify-center gap-2 text-emerald-800 font-bold text-lg mb-1">

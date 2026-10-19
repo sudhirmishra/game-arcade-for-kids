@@ -204,6 +204,221 @@ class SoundEngine {
     osc.stop(now + 0.12);
   }
 
+  // Animal voice synthesizer for Memory Game and kids games
+  public playAnimalVoice(label: string) {
+    if (this.muted) return;
+    this.initCtx();
+
+    const normalized = label.toLowerCase();
+    const now = this.ctx ? this.ctx.currentTime : 0;
+
+    // 1. Synthesize specialized Web Audio acoustic timbre for the animal
+    if (this.ctx) {
+      if (normalized.includes('lion')) {
+        // Deep rumble & roar (low FM growl)
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const mod = this.ctx.createOscillator();
+        const modGain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(70, now + 0.6);
+
+        mod.type = 'sine';
+        mod.frequency.setValueAtTime(35, now);
+        modGain.gain.setValueAtTime(40, now);
+
+        mod.connect(osc.frequency);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        mod.start(now);
+        osc.start(now);
+        mod.stop(now + 0.65);
+        osc.stop(now + 0.65);
+      } else if (normalized.includes('frog')) {
+        // Double "Ribbit" croak
+        [0, 0.22].forEach((offset) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now + offset);
+          osc.frequency.linearRampToValueAtTime(210, now + offset + 0.08);
+          osc.frequency.linearRampToValueAtTime(130, now + offset + 0.16);
+
+          gain.gain.setValueAtTime(0.22, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+
+          osc.connect(gain);
+          gain.connect(this.ctx!.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.19);
+        });
+      } else if (normalized.includes('elephant')) {
+        // High-pitched brassy trumpet
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(540, now + 0.18);
+        osc.frequency.exponentialRampToValueAtTime(380, now + 0.5);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.55);
+      } else if (normalized.includes('monkey')) {
+        // "Ooh-ooh-aah-aah" rapid chattering chirps
+        [0, 0.1, 0.22, 0.34].forEach((offset, idx) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'sine';
+          const pitch = idx >= 2 ? 780 : 560;
+          osc.frequency.setValueAtTime(pitch, now + offset);
+          osc.frequency.exponentialRampToValueAtTime(pitch * 1.3, now + offset + 0.07);
+
+          gain.gain.setValueAtTime(0.18, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.ctx!.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.09);
+        });
+      } else if (normalized.includes('owl')) {
+        // "Hoo... Hoo-hooo!" resonant hollow tone
+        [0, 0.28].forEach((offset, idx) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'sine';
+          const duration = idx === 0 ? 0.2 : 0.35;
+          osc.frequency.setValueAtTime(420, now + offset);
+          osc.frequency.exponentialRampToValueAtTime(370, now + offset + duration);
+
+          gain.gain.setValueAtTime(0.2, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx!.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + duration + 0.02);
+        });
+      } else if (normalized.includes('penguin')) {
+        // Honk honk
+        [0, 0.18].forEach((offset) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(240, now + offset);
+          osc.frequency.exponentialRampToValueAtTime(330, now + offset + 0.08);
+
+          gain.gain.setValueAtTime(0.18, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.14);
+
+          osc.connect(gain);
+          gain.connect(this.ctx!.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.15);
+        });
+      } else if (normalized.includes('bunny')) {
+        // Cute bouncy chirp
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(1400, now + 0.12);
+
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (normalized.includes('fox')) {
+        // Playful double yip
+        [0, 0.14].forEach((offset) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(700, now + offset);
+          osc.frequency.exponentialRampToValueAtTime(1150, now + offset + 0.09);
+
+          gain.gain.setValueAtTime(0.16, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.11);
+
+          osc.connect(gain);
+          gain.connect(this.ctx!.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.12);
+        });
+      } else {
+        // Friendly cheerful chirp for panda, koala, etc.
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, now);
+        osc.frequency.exponentialRampToValueAtTime(950, now + 0.15);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+    }
+
+    // 2. Play natural cheerful voice call using SpeechSynthesis API
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel(); // cancel any pending speech
+
+        let speechPhrase = `${label}!`;
+        if (normalized.includes('lion')) speechPhrase = 'Roar! Lion!';
+        else if (normalized.includes('frog')) speechPhrase = 'Ribbit! Frog!';
+        else if (normalized.includes('elephant')) speechPhrase = 'Trumpet! Elephant!';
+        else if (normalized.includes('monkey')) speechPhrase = 'Ooh ooh aah aah! Monkey!';
+        else if (normalized.includes('owl')) speechPhrase = 'Hoo hoo! Owl!';
+        else if (normalized.includes('penguin')) speechPhrase = 'Honk honk! Penguin!';
+        else if (normalized.includes('fox')) speechPhrase = 'Yip yip! Fox!';
+        else if (normalized.includes('bunny')) speechPhrase = 'Hop hop! Bunny!';
+        else if (normalized.includes('panda')) speechPhrase = 'Happy Panda!';
+        else if (normalized.includes('koala')) speechPhrase = 'Cute Koala!';
+        else if (normalized.includes('ice cream')) speechPhrase = 'Yum! Ice cream!';
+        else if (normalized.includes('rocket')) speechPhrase = 'Blastoff! Rocket!';
+        else if (normalized.includes('alien')) speechPhrase = 'Greetings Earthling!';
+        else if (normalized.includes('star')) speechPhrase = 'Twinkle star!';
+
+        const utterance = new SpeechSynthesisUtterance(speechPhrase);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.25; // cheerful, friendly kid pitch
+        utterance.volume = 0.85;
+
+        // Try to pick a clear English voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(
+          (v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Kid') || v.name.includes('Google') || v.name.includes('Samantha'))
+        );
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // ignore if speech synthesis is blocked
+      }
+    }
+  }
+
   // Victory fanfare
   public playWin() {
     if (this.muted) return;
