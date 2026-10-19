@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balloon Pop Numbers - PixiJS Mini-Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: radial-gradient(circle at center, #1b3858 0%, #0d1e30 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      user-select: none;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ff7675, #fab1a0, #fdcb6e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    #game-container {
+      position: relative;
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      line-height: 0;
+      background: #0f2b48;
+    }
+    .hud {
+      width: 800px;
+      max-width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 10px 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .prompt-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .target-badge {
+      background: #ffffff;
+      color: #e84118;
+      font-size: 24px;
+      font-weight: 900;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .repeat-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .repeat-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .score-box {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .score-val {
+      color: #f1c40f;
+      font-size: 20px;
+    }
+  </style>
+
+  <!-- PixiJS v8 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>🎈 Balloon Pop Numbers</h1>
+  </header>
+
+  <div class="hud">
+    <div class="prompt-box">
+      <div id="target-display" class="target-badge">3</div>
+      <div>
+        <div style="font-size: 12px; color: #cbd5e1; text-transform: uppercase; font-weight: 700;">Target Goal</div>
+        <div id="instruction-text" style="font-size: 18px; font-weight: 800;">Pop number 3!</div>
+      </div>
+      <button id="repeat-audio-btn" class="repeat-btn">🔊 Repeat Voice</button>
+    </div>
+
+    <div class="score-box">
+      Score: <span id="score-val" class="score-val">0</span>
+    </div>
+  </div>
+
+  <div id="game-container"></div>
+
+  <script>
+    (async () => {
+      const STAGE_WIDTH = 800;
+      const STAGE_HEIGHT = 500;
+      const BALLOON_COLORS = [
+        0xff4757, 0x2ed573, 0x1e90ff, 0xffa502, 0x9b59b6, 0xff6b81, 0x00d2d3, 0xff7f50
+      ];
+
+      let score = 0;
+      let targetNumber = 3;
+
+      // 1. Web Speech Synthesis Prompt Helper
+      function speakPrompt(num) {
+        document.getElementById('target-display').textContent = num;
+        document.getElementById('instruction-text').textContent = `Pop number ${num}!`;
+
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(`Pop the number ${num}!`);
+          utter.rate = 0.92;
+          utter.pitch = 1.25;
+          utter.lang = 'en-US';
+          window.speechSynthesis.speak(utter);
+        }
+      }
+
+      document.getElementById('repeat-audio-btn').addEventListener('click', () => {
+        speakPrompt(targetNumber);
+      });
+
+      // 2. PixiJS Application
+      const app = new PIXI.Application();
+      await app.init({
+        width: STAGE_WIDTH,
+        height: STAGE_HEIGHT,
+        backgroundColor: 0x1a4b75,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+      });
+
+      document.getElementById('game-container').appendChild(app.canvas);
+
+      // 3. Clouds & Sky Background
+      const sky = new PIXI.Graphics();
+      sky.rect(0, STAGE_HEIGHT * 0.45, STAGE_WIDTH, STAGE_HEIGHT * 0.55).fill({ color: 0x3882b8, alpha: 0.4 });
+      
+      const drawCloud = (x, y, s = 1) => {
+        sky
+          .circle(x, y, 32 * s).fill({ color: 0xffffff, alpha: 0.22 })
+          .circle(x + 36 * s, y - 8 * s, 42 * s).fill({ color: 0xffffff, alpha: 0.25 })
+          .circle(x + 80 * s, y, 36 * s).fill({ color: 0xffffff, alpha: 0.22 })
+          .roundRect(x - 20 * s, y + 6 * s, 120 * s, 24 * s, 12 * s).fill({ color: 0xffffff, alpha: 0.24 });
+      };
+      drawCloud(100, 120, 1.1);
+      drawCloud(540, 180, 0.9);
+      drawCloud(340, 360, 1.2);
+      app.stage.addChild(sky);
+
+      // 4. Balloon & Particle Containers
+      const balloonsContainer = new PIXI.Container();
+      const particlesContainer = new PIXI.Container();
+      app.stage.addChild(balloonsContainer);
+      app.stage.addChild(particlesContainer);
+
+      // Particle Pool
+      const particles = [];
+      for (let i = 0; i < 40; i++) {
+        const pG = new PIXI.Graphics();
+        pG.circle(0, 0, 4.5).fill({ color: 0xffffff });
+        const cont = new PIXI.Container();
+        cont.addChild(pG);
+        cont.visible = false;
+        particlesContainer.addChild(cont);
+        particles.push({ container: cont, gfx: pG, x: 0, y: 0, vx: 0, vy: 0, alpha: 1, active: false });
+      }
+
+      function explodePop(x, y, color) {
+        let spawned = 0;
+        particles.forEach((p) => {
+          if (!p.active && spawned < 14) {
+            p.active = true;
+            p.x = x;
+            p.y = y;
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 2 + Math.random() * 5;
+            p.vx = Math.cos(angle) * spd;
+            p.vy = Math.sin(angle) * spd;
+            p.alpha = 1.0;
+            p.gfx.tint = color;
+            p.container.visible = true;
+            spawned++;
+          }
+        });
+      }
+
+      // 5. Create Floating Balloons
+      const balloons = [];
+      const numBalloons = 7;
+
+      for (let i = 0; i < numBalloons; i++) {
+        const bCont = new PIXI.Container();
+        bCont.eventMode = 'static';
+        bCont.cursor = 'pointer';
+
+        const color = BALLOON_COLORS[i % BALLOON_COLORS.length];
+
+        const bGfx = new PIXI.Graphics();
+        bGfx.ellipse(0, 0, 38, 48).fill({ color: 0xffffff }).stroke({ width: 2, color: 0xffffff });
+        bGfx.ellipse(-14, -16, 11, 14).fill({ color: 0xffffff, alpha: 0.35 });
+        bGfx.poly([-6, 48, 6, 48, 0, 55]).fill({ color: 0xffffff });
+        bGfx.moveTo(0, 55).bezierCurveTo(-8, 70, 8, 85, 0, 100).stroke({ width: 2, color: 0xe2e8f0, alpha: 0.8 });
+        bGfx.tint = color;
+
+        const numVal = i + 1;
+        const txt = new PIXI.Text({
+          text: String(numVal),
+          style: new PIXI.TextStyle({
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 26,
+            fontWeight: '900',
+            fill: 0xffffff,
+          })
+        });
+        txt.anchor.set(0.5);
+
+        bCont.addChild(bGfx);
+        bCont.addChild(txt);
+
+        const bItem = {
+          container: bCont,
+          bodyGfx: bGfx,
+          numberText: txt,
+          x: 90 + i * 95,
+          y: 540 + i * 70,
+          baseX: 90 + i * 95,
+          speed: 1.3 + Math.random() * 0.7,
+          swayOffset: Math.random() * Math.PI * 2,
+          number: numVal,
+          color,
+          isWobbling: false,
+          wobbleTimer: 0,
+          isPopping: false,
+          active: true,
+        };
+
+        bCont.on('pointerdown', () => {
+          if (!bItem.active || bItem.isPopping) return;
+
+          if (bItem.number === targetNumber) {
+            // MATCH! Pop effect
+            bItem.isPopping = true;
+            explodePop(bCont.x, bCont.y, bItem.color);
+
+            let popScale = 1.0;
+            const popAnim = (ticker) => {
+              popScale += 0.25 * ticker.deltaTime;
+              bCont.scale.set(popScale);
+              bCont.alpha = Math.max(0, 1.8 - popScale);
+              if (popScale >= 2.0) {
+                app.ticker.remove(popAnim);
+                bCont.visible = false;
+                bItem.active = false;
+                setTimeout(() => recycleBalloon(bItem), 600);
+              }
+            };
+            app.ticker.add(popAnim);
+
+            score += 100;
+            document.getElementById('score-val').textContent = score;
+
+            // Pick next target
+            setTimeout(() => {
+              targetNumber = 1 + Math.floor(Math.random() * 10);
+              speakPrompt(targetNumber);
+            }, 500);
+          } else {
+            // DISTRACTOR: Wobble
+            bItem.isWobbling = true;
+            bItem.wobbleTimer = 20;
+          }
+        });
+
+        balloonsContainer.addChild(bCont);
+        balloons.push(bItem);
+      }
+
+      function recycleBalloon(b) {
+        b.isPopping = false;
+        b.isWobbling = false;
+        b.container.visible = true;
+        b.container.scale.set(1.0);
+        b.container.alpha = 1.0;
+        b.container.rotation = 0;
+        b.active = true;
+
+        b.number = 1 + Math.floor(Math.random() * 10);
+        b.numberText.text = String(b.number);
+        b.color = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+        b.bodyGfx.tint = b.color;
+        b.baseX = 70 + Math.random() * (STAGE_WIDTH - 140);
+        b.y = STAGE_HEIGHT + 60;
+      }
+
+      // 6. Ticker Update
+      app.ticker.add((ticker) => {
+        const dt = Math.min(ticker.deltaTime, 2.0);
+
+        balloons.forEach((b) => {
+          if (!b.active || b.isPopping) return;
+
+          b.y -= b.speed * dt;
+          b.container.y = b.y;
+          b.container.x = b.baseX + Math.sin(Date.now() * 0.002 + b.swayOffset) * 16;
+
+          if (b.isWobbling) {
+            b.wobbleTimer -= dt;
+            b.container.rotation = Math.sin(Date.now() * 0.04) * 0.25;
+            if (b.wobbleTimer <= 0) {
+              b.isWobbling = false;
+              b.container.rotation = 0;
+            }
+          }
+
+          if (b.y < -120) {
+            recycleBalloon(b);
+          }
+        });
+
+        particles.forEach((p) => {
+          if (p.active) {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vy += 0.15 * dt;
+            p.alpha -= 0.025 * dt;
+            p.container.x = p.x;
+            p.container.y = p.y;
+            p.container.alpha = Math.max(0, p.alpha);
+            if (p.alpha <= 0) {
+              p.active = false;
+              p.container.visible = false;
+            }
+          }
+        });
+      });
+
+      // Initial spoken prompt
+      speakPrompt(targetNumber);
+    })();
+  </script>
+</body>
+</html>

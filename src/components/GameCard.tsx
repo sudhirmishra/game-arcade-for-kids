@@ -18,7 +18,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelect }) => {
         className="w-full h-48 relative flex items-center justify-center p-6 overflow-hidden cursor-pointer"
         style={{
           background:
-            game.id === 'tictactoe'
+            game.id === 'shapematch'
+              ? 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)'
+              : game.id === 'balloonpop'
+              ? 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)'
+              : game.id === 'colordash'
+              ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+              : game.id === 'jellybounce'
+              ? 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)'
+              : game.id === 'tictactoe'
               ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
               : game.id === 'memory'
               ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
@@ -30,6 +38,56 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onSelect }) => {
         }}
       >
         {/* Handcrafted animated vector game artwork for each game */}
+        {game.id === 'shapematch' && (
+          <div className="relative w-48 h-32 flex items-center justify-center">
+            {/* Draggable Circle & Shadow Slot */}
+            <div className="absolute left-4 top-2 w-12 h-12 rounded-full bg-rose-500 border-2 border-white shadow-md flex items-center justify-center text-lg group-hover:scale-110 group-hover:-translate-y-1 transition-transform">
+              🔴
+            </div>
+            <div className="absolute right-4 top-2 w-12 h-12 rounded-full bg-slate-900/40 border-2 border-dashed border-slate-400/80 shadow-inner flex items-center justify-center text-xs text-slate-400">
+              slot
+            </div>
+
+            {/* Draggable Square & Shadow Slot */}
+            <div className="absolute left-10 bottom-2 w-12 h-12 rounded-2xl bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
+              🟩
+            </div>
+            <div className="absolute right-10 bottom-2 w-12 h-12 rounded-2xl bg-slate-900/40 border-2 border-dashed border-slate-400/80 shadow-inner flex items-center justify-center text-xs text-slate-400">
+              slot
+            </div>
+
+            {/* Connecting snap arrow */}
+            <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold shadow-md animate-pulse">
+              ➔
+            </div>
+          </div>
+        )}
+
+        {game.id === 'balloonpop' && (
+          <div className="relative w-48 h-32 flex items-center justify-center">
+            {/* Target Floating Balloon 7 */}
+            <div className="absolute -top-1 left-16 w-14 h-18 rounded-full bg-gradient-to-tr from-rose-500 to-pink-400 border-2 border-white shadow-lg flex flex-col items-center justify-center text-white font-black text-xl group-hover:scale-110 group-hover:-translate-y-2 transition-transform">
+              <span>7</span>
+              <span className="w-1.5 h-1.5 bg-rose-600 rounded-full mt-1" />
+            </div>
+
+            {/* Distractor Balloon 3 */}
+            <div className="absolute bottom-1 left-4 w-11 h-14 rounded-full bg-sky-500 border-2 border-white shadow-md flex flex-col items-center justify-center text-white font-extrabold text-base group-hover:translate-y-1 transition-transform">
+              <span>3</span>
+            </div>
+
+            {/* Distractor Balloon 9 */}
+            <div className="absolute bottom-2 right-6 w-12 h-15 rounded-full bg-amber-400 border-2 border-white shadow-md flex flex-col items-center justify-center text-white font-extrabold text-base group-hover:scale-105 transition-transform">
+              <span>9</span>
+            </div>
+
+            {/* Speech bubble badge */}
+            <div className="absolute top-1 right-2 bg-white/95 px-2 py-0.5 rounded-full text-[10px] font-bold text-rose-600 border border-rose-200 shadow-xs flex items-center gap-1">
+              <span>🗣️ Pop 7!</span>
+            </div>
+          </div>
+        )}
+
         {game.id === 'colordash' && (
           <div className="relative w-48 h-32 flex items-center justify-center">
             {/* Running Chameleon */}

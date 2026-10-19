@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixiJS Drag & Drop Shape Matching Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: radial-gradient(circle at center, #1e1e38 0%, #0f0f1c 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      user-select: none;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #ff7675, #74b9ff, #55efc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p {
+      color: #9aa0b4;
+      font-size: 14px;
+    }
+    #game-container {
+      position: relative;
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      background: #181829;
+      line-height: 0;
+    }
+    .footer-note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #636b83;
+    }
+  </style>
+
+  <!-- PixiJS v8 Official CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>Shape Matcher 2D</h1>
+    <p>Drag the vibrant shapes on the left into their matching shadow slots on the right!</p>
+  </header>
+
+  <!-- Container element where PixiJS canvas will be attached -->
+  <div id="game-container"></div>
+
+  <div class="footer-note">
+    Self-contained PixiJS example · Smooth pointer drag-and-drop with snap-to-target collision
+  </div>
+
+  <script>
+    (async () => {
+      // -------------------------------------------------------------
+      // 1. PixiJS Application Initialization
+      // -------------------------------------------------------------
+      const GAME_WIDTH = 800;
+      const GAME_HEIGHT = 460;
+      const SNAP_DISTANCE = 65; // Pixel threshold to snap into shadow slot
+
+      const app = new PIXI.Application();
+      await app.init({
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
+        backgroundColor: 0x141424,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+      });
+
+      // Mount canvas to the DOM
+      document.getElementById('game-container').appendChild(app.canvas);
+
+      // Make stage interactive to capture global dragging movements
+      app.stage.eventMode = 'static';
+      app.stage.hitArea = app.screen;
+
+      // -------------------------------------------------------------
+      // 2. Decorative Stage Background & Dividing Zone Guide
+      // -------------------------------------------------------------
+      const bgDecor = new PIXI.Graphics();
+      // Target area highlight plate on the right
+      bgDecor
+        .roundRect(430, 40, 330, 380, 24)
+        .fill({ color: 0x1b1b30, alpha: 0.85 })
+        .stroke({ width: 2, color: 0x2e2e4a });
+
+      // Subtle dashed separator line between Spawn Zone and Target Zone
+      bgDecor
+        .moveTo(400, 40)
+        .lineTo(400, 420)
+        .stroke({ width: 2, color: 0x2d344d, alpha: 0.5 });
+
+      app.stage.addChild(bgDecor);
+
+      // Section Labels
+      const styleLabel = new PIXI.TextStyle({
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: 13,
+        fontWeight: 'bold',
+        fill: 0x718096,
+        letterSpacing: 1,
+      });
+
+      const labelLeft = new PIXI.Text({ text: 'DRAGGABLE PIECES', style: styleLabel });
+      labelLeft.position.set(130, 20);
+      app.stage.addChild(labelLeft);
+
+      const labelRight = new PIXI.Text({ text: 'MATCHING SHADOW SLOTS', style: styleLabel });
+      labelRight.position.set(500, 20);
+      app.stage.addChild(labelRight);
+
+      // -------------------------------------------------------------
+      // 3. Shape Definitions & Procedural Graphic Generation
+      // -------------------------------------------------------------
+      // We will define a Circle, Square, and Triangle
+      const SHAPE_CONFIGS = [
+        {
+          id: 'circle',
+          name: 'Circle',
+          color: 0xff4757, // Bright Coral Red
+          spawnPos: { x: 120, y: 130 },
+          targetPos: { x: 500, y: 130 },
+          draw: (gfx, isShadow) => {
+            const radius = 42;
+            if (isShadow) {
+              // Shadow silhouette: dark with semi-transparency and dashed-look border
+              gfx
+                .circle(0, 0, radius)
+                .fill({ color: 0x0a0a14, alpha: 0.65 })
+                .stroke({ width: 3, color: 0x3d4461, alpha: 0.8 });
+            } else {
+              // Draggable piece: colorful with clean white stroke and highlight
+              gfx
+                .circle(0, 0, radius)
+                .fill({ color: 0xff4757 })
+                .stroke({ width: 3, color: 0xffffff });
+              // Small inner shine highlight for polished look
+              gfx
+                .circle(-14, -14, 10)
+                .fill({ color: 0xffffff, alpha: 0.25 });
+            }
+          },
+        },
+        {
+          id: 'square',
+          name: 'Square',
+          color: 0x2ed573, // Emerald Green
+          spawnPos: { x: 260, y: 250 },
+          targetPos: { x: 670, y: 230 },
+          draw: (gfx, isShadow) => {
+            const size = 80;
+            const radius = 16;
+            if (isShadow) {
+              gfx
+                .roundRect(-size / 2, -size / 2, size, size, radius)
+                .fill({ color: 0x0a0a14, alpha: 0.65 })
+                .stroke({ width: 3, color: 0x3d4461, alpha: 0.8 });
+            } else {
+              gfx
+                .roundRect(-size / 2, -size / 2, size, size, radius)
+                .fill({ color: 0x2ed573 })
+                .stroke({ width: 3, color: 0xffffff });
+              // Highlight bar
+              gfx
+                .roundRect(-size / 2 + 10, -size / 2 + 8, size - 20, 12, 6)
+                .fill({ color: 0xffffff, alpha: 0.22 });
+            }
+          },
+        },
+        {
+          id: 'triangle',
+          name: 'Triangle',
+          color: 0x1e90ff, // Dodger Blue
+          spawnPos: { x: 140, y: 350 },
+          targetPos: { x: 520, y: 320 },
+          draw: (gfx, isShadow) => {
+            // Equilateral-like triangle points centered around (0, 0)
+            const pts = [0, -45, 45, 36, -45, 36];
+            if (isShadow) {
+              gfx
+                .poly(pts)
+                .fill({ color: 0x0a0a14, alpha: 0.65 })
+                .stroke({ width: 3, color: 0x3d4461, alpha: 0.8 });
+            } else {
+              gfx
+                .poly(pts)
+                .fill({ color: 0x1e90ff })
+                .stroke({ width: 3, color: 0xffffff });
+              // Subtle inner accent dot
+              gfx
+                .circle(0, 10, 8)
+                .fill({ color: 0xffffff, alpha: 0.25 });
+            }
+          },
+        },
+      ];
+
+      // Groups to hold references
+      const shadows = [];
+      const draggables = [];
+      let totalMatches = 0;
+
+      // -------------------------------------------------------------
+      // 4. Create Shadow Silhouettes (Matching Targets)
+      // -------------------------------------------------------------
+      const shadowsContainer = new PIXI.Container();
+      app.stage.addChild(shadowsContainer);
+
+      SHAPE_CONFIGS.forEach((config) => {
+        const shadowGfx = new PIXI.Graphics();
+        config.draw(shadowGfx, true); // draw in shadow silhouette mode
+
+        const shadowContainer = new PIXI.Container();
+        shadowContainer.position.set(config.targetPos.x, config.targetPos.y);
+        shadowContainer.addChild(shadowGfx);
+
+        // Store custom properties for collision detection & feedback
+        shadowContainer.shapeId = config.id;
+        shadowContainer.baseGfx = shadowGfx;
+        shadowContainer.config = config;
+
+        shadowsContainer.addChild(shadowContainer);
+        shadows.push(shadowContainer);
+      });
+
+      // -------------------------------------------------------------
+      // 5. Create Draggable Colored Shapes & Interaction Logic
+      // -------------------------------------------------------------
+      const shapesContainer = new PIXI.Container();
+      app.stage.addChild(shapesContainer);
+
+      // Drag state tracking
+      let currentDragItem = null;
+      let dragOffset = { x: 0, y: 0 };
+
+      SHAPE_CONFIGS.forEach((config) => {
+        const shapeGfx = new PIXI.Graphics();
+        config.draw(shapeGfx, false); // draw colored piece
+
+        const shapeContainer = new PIXI.Container();
+        shapeContainer.position.set(config.spawnPos.x, config.spawnPos.y);
+        shapeContainer.addChild(shapeGfx);
+
+        // Metadata on container
+        shapeContainer.shapeId = config.id;
+        shapeContainer.initialX = config.spawnPos.x;
+        shapeContainer.initialY = config.spawnPos.y;
+        shapeContainer.matched = false;
+        shapeContainer.isReturning = false;
+        shapeContainer.bodyGfx = shapeGfx;
+        shapeContainer.config = config;
+
+        // Enable static event mode for interactive pointer events
+        shapeContainer.eventMode = 'static';
+        shapeContainer.cursor = 'grab';
+
+        // --- POINTER DOWN: Start Dragging ---
+        shapeContainer.on('pointerdown', (e) => {
+          if (shapeContainer.matched || shapeContainer.isReturning) return;
+
+          currentDragItem = shapeContainer;
+          shapeContainer.cursor = 'grabbing';
+
+          // Pop piece to the top of display list for natural layering
+          shapesContainer.setChildIndex(shapeContainer, shapesContainer.children.length - 1);
+
+          // Subtle squash & stretch / lift animation
+          shapeContainer.scale.set(1.12);
+
+          // Compute offset so shape doesn't awkwardly jump center to cursor
+          // In PixiJS v8, use app.stage.toLocal(e.global)
+          const pointerPos = app.stage.toLocal(e.global);
+          dragOffset.x = pointerPos.x - shapeContainer.x;
+          dragOffset.y = pointerPos.y - shapeContainer.y;
+        });
+
+        shapesContainer.addChild(shapeContainer);
+        draggables.push(shapeContainer);
+      });
+
+      // --- POINTER MOVE: Move Dragged Item Smoothly ---
+      app.stage.on('pointermove', (e) => {
+        if (!currentDragItem) return;
+
+        const pointerPos = app.stage.toLocal(e.global);
+        currentDragItem.x = pointerPos.x - dragOffset.x;
+        currentDragItem.y = pointerPos.y - dragOffset.y;
+
+        // Optional: proximity glow on matching shadow slot while dragging near
+        const matchingShadow = shadows.find((s) => s.shapeId === currentDragItem.shapeId);
+        if (matchingShadow) {
+          const dist = Math.hypot(currentDragItem.x - matchingShadow.x, currentDragItem.y - matchingShadow.y);
+          if (dist < SNAP_DISTANCE) {
+            matchingShadow.scale.set(1.08);
+          } else {
+            matchingShadow.scale.set(1.0);
+          }
+        }
+      });
+
+      // --- POINTER UP: Drop and Snap-to-Target Collision Check ---
+      const handlePointerUp = () => {
+        if (!currentDragItem) return;
+
+        const item = currentDragItem;
+        currentDragItem = null;
+
+        // Reset cursor and scale
+        item.cursor = 'grab';
+        item.scale.set(1.0);
+
+        // Find the designated shadow target for this shape
+        const targetShadow = shadows.find((s) => s.shapeId === item.shapeId);
+        targetShadow.scale.set(1.0); // Reset hover scale
+
+        if (targetShadow) {
+          // Calculate Euclidean distance between dropped position and shadow position
+          const distance = Math.hypot(item.x - targetShadow.x, item.y - targetShadow.y);
+
+          if (distance <= SNAP_DISTANCE) {
+            // -------------------------------------------------------------
+            // SUCCESSFUL MATCH! SNAP TO SHADOW
+            // -------------------------------------------------------------
+            item.matched = true;
+            item.x = targetShadow.x;
+            item.y = targetShadow.y;
+            item.cursor = 'default';
+            item.eventMode = 'none'; // Lock shape in place
+
+            // Visual Confirmation 1: Pulsing scale animation
+            let pulseTick = 0;
+            const pulseTicker = (ticker) => {
+              pulseTick += 0.2 * ticker.deltaTime;
+              item.scale.set(1 + Math.sin(pulseTick) * 0.15);
+              if (pulseTick >= Math.PI) {
+                item.scale.set(1.0);
+                app.ticker.remove(pulseTicker);
+              }
+            };
+            app.ticker.add(pulseTicker);
+
+            // Visual Confirmation 2: Shadow illumination / green success halo
+            const successHalo = new PIXI.Graphics();
+            successHalo
+              .circle(0, 0, 56)
+              .fill({ color: 0x2ed573, alpha: 0.35 });
+            targetShadow.addChildAt(successHalo, 0);
+
+            // Visual Confirmation 3: Floating "+1 MATCH!" floating text
+            triggerFloatingText(item.x, item.y - 40, `✓ ${item.config.name} Matched!`, 0x55efc4);
+
+            totalMatches++;
+
+            // Check if all shapes have been matched
+            if (totalMatches === SHAPE_CONFIGS.length) {
+              triggerVictoryBanner();
+            }
+            return;
+          }
+        }
+
+        // -------------------------------------------------------------
+        // MISMATCH OR TOO FAR: Smoothly slide back to initial position
+        // -------------------------------------------------------------
+        animateBackToOrigin(item);
+      };
+
+      app.stage.on('pointerup', handlePointerUp);
+      app.stage.on('pointerupoutside', handlePointerUp);
+
+      // -------------------------------------------------------------
+      // 6. Smooth Return Animation (Lerp back to origin on missed drop)
+      // -------------------------------------------------------------
+      function animateBackToOrigin(item) {
+        item.isReturning = true;
+        item.cursor = 'not-allowed';
+
+        const returnTicker = (ticker) => {
+          const dt = ticker.deltaTime;
+          // Smooth spring-like lerp back to starting coordinates
+          item.x += (item.initialX - item.x) * (0.22 * dt);
+          item.y += (item.initialY - item.y) * (0.22 * dt);
+
+          const remainingDist = Math.hypot(item.x - item.initialX, item.y - item.initialY);
+          if (remainingDist < 1.0) {
+            item.x = item.initialX;
+            item.y = item.initialY;
+            item.isReturning = false;
+            item.cursor = 'grab';
+            app.ticker.remove(returnTicker);
+          }
+        };
+        app.ticker.add(returnTicker);
+      }
+
+      // -------------------------------------------------------------
+      // 7. Floating Text Confirmation Utility
+      // -------------------------------------------------------------
+      function triggerFloatingText(x, y, message, color = 0xffffff) {
+        const textStyle = new PIXI.TextStyle({
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 16,
+          fontWeight: 'bold',
+          fill: color,
+          dropShadow: {
+            alpha: 0.6,
+            blur: 4,
+            distance: 2,
+            color: 0x000000,
+          },
+        });
+
+        const txt = new PIXI.Text({ text: message, style: textStyle });
+        txt.anchor.set(0.5);
+        txt.position.set(x, y);
+        app.stage.addChild(txt);
+
+        let elapsed = 0;
+        const textTicker = (ticker) => {
+          elapsed += 0.05 * ticker.deltaTime;
+          txt.y -= 1.2 * ticker.deltaTime;
+          txt.alpha = Math.max(0, 1 - elapsed);
+
+          if (txt.alpha <= 0) {
+            app.stage.removeChild(txt);
+            txt.destroy();
+            app.ticker.remove(textTicker);
+          }
+        };
+        app.ticker.add(textTicker);
+      }
+
+      // -------------------------------------------------------------
+      // 8. Victory Banner Notification
+      // -------------------------------------------------------------
+      function triggerVictoryBanner() {
+        const victoryContainer = new PIXI.Container();
+        victoryContainer.position.set(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+
+        // Backdrop card
+        const cardBg = new PIXI.Graphics();
+        cardBg
+          .roundRect(-180, -50, 360, 100, 20)
+          .fill({ color: 0x0f172a, alpha: 0.95 })
+          .stroke({ width: 3, color: 0x22c55e });
+
+        const titleText = new PIXI.Text({
+          text: '🎉 ALL SHAPES MATCHED!',
+          style: new PIXI.TextStyle({
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 20,
+            fontWeight: '900',
+            fill: 0x86efac,
+            letterSpacing: 0.5,
+          }),
+        });
+        titleText.anchor.set(0.5, 0.7);
+
+        const subText = new PIXI.Text({
+          text: 'Tap anywhere to replay!',
+          style: new PIXI.TextStyle({
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 12,
+            fontWeight: '600',
+            fill: 0x94a3b8,
+          }),
+        });
+        subText.anchor.set(0.5, -0.9);
+
+        victoryContainer.addChild(cardBg);
+        victoryContainer.addChild(titleText);
+        victoryContainer.addChild(subText);
+        app.stage.addChild(victoryContainer);
+
+        // Entrance scale pop
+        victoryContainer.scale.set(0.5);
+        let scaleProgress = 0;
+        const popTicker = (ticker) => {
+          scaleProgress += 0.12 * ticker.deltaTime;
+          victoryContainer.scale.set(0.5 + Math.min(0.5, scaleProgress * 0.5));
+          if (scaleProgress >= 1) {
+            victoryContainer.scale.set(1.0);
+            app.ticker.remove(popTicker);
+          }
+        };
+        app.ticker.add(popTicker);
+
+        // Replay on click
+        victoryContainer.eventMode = 'static';
+        victoryContainer.cursor = 'pointer';
+        victoryContainer.on('pointerdown', () => {
+          app.stage.removeChild(victoryContainer);
+          victoryContainer.destroy();
+          resetGame();
+        });
+      }
+
+      // -------------------------------------------------------------
+      // 9. Reset Game Helper
+      // -------------------------------------------------------------
+      function resetGame() {
+        totalMatches = 0;
+        draggables.forEach((item) => {
+          item.matched = false;
+          item.eventMode = 'static';
+          item.cursor = 'grab';
+          item.scale.set(1.0);
+          animateBackToOrigin(item);
+        });
+
+        // Clean any success halos from shadows
+        shadows.forEach((shadow) => {
+          if (shadow.children.length > 1) {
+            shadow.removeChildAt(0).destroy();
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

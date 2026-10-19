@@ -5,6 +5,8 @@ import { MemoryGame } from './components/games/MemoryGame';
 import { FallingBlocksGame } from './components/games/FallingBlocksGame';
 import { JellyBounceLabGame } from './components/games/JellyBounceLabGame';
 import { ChameleonColorDashGame } from './components/games/ChameleonColorDashGame';
+import { ShapeMatchGame } from './components/games/ShapeMatchGame';
+import { BalloonPopGame } from './components/games/BalloonPopGame';
 import { GameCard } from './components/GameCard';
 import { StickerModal } from './components/StickerModal';
 import { AudioControls } from './components/AudioControls';
@@ -76,7 +78,11 @@ export default function App() {
   };
 
   const handleGameWin = (gameId: GameId) => {
-    if (gameId === 'colordash') {
+    if (gameId === 'shapematch') {
+      unlockSticker('shape_wizard');
+    } else if (gameId === 'balloonpop') {
+      unlockSticker('balloon_master');
+    } else if (gameId === 'colordash') {
       unlockSticker('curious_explorer');
     } else if (gameId === 'jellybounce') {
       unlockSticker('stack_master');
@@ -97,7 +103,15 @@ export default function App() {
 
   const pickRandomGame = () => {
     sound.playTap(640);
-    const options: GameId[] = ['colordash', 'jellybounce', 'tictactoe', 'memory', 'fallingblocks'];
+    const options: GameId[] = [
+      'shapematch',
+      'balloonpop',
+      'colordash',
+      'jellybounce',
+      'tictactoe',
+      'memory',
+      'fallingblocks',
+    ];
     const chosen = options[Math.floor(Math.random() * options.length)];
     setActiveGameId(chosen);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -126,7 +140,7 @@ export default function App() {
           </button>
 
           {/* Zone 2: 4-5 concise single-line text links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600">
+          <nav className="hidden lg:flex items-center gap-4 text-xs xl:text-sm font-semibold text-slate-600">
             <button
               onClick={() => selectGame(null)}
               className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
@@ -134,6 +148,22 @@ export default function App() {
               }`}
             >
               All Games
+            </button>
+            <button
+              onClick={() => selectGame('shapematch')}
+              className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
+                activeGameId === 'shapematch' ? 'text-purple-600 font-bold' : ''
+              }`}
+            >
+              Shape Match
+            </button>
+            <button
+              onClick={() => selectGame('balloonpop')}
+              className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
+                activeGameId === 'balloonpop' ? 'text-rose-600 font-bold' : ''
+              }`}
+            >
+              Balloon Pop
             </button>
             <button
               onClick={() => selectGame('colordash')}
@@ -146,7 +176,7 @@ export default function App() {
             <button
               onClick={() => selectGame('jellybounce')}
               className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
-                activeGameId === 'jellybounce' ? 'text-rose-600 font-bold' : ''
+                activeGameId === 'jellybounce' ? 'text-pink-600 font-bold' : ''
               }`}
             >
               Jelly Bounce
@@ -162,7 +192,7 @@ export default function App() {
             <button
               onClick={() => selectGame('memory')}
               className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
-                activeGameId === 'memory' ? 'text-blue-600 font-bold' : ''
+                activeGameId === 'memory' ? 'text-emerald-600 font-bold' : ''
               }`}
             >
               Memory Match
@@ -170,7 +200,7 @@ export default function App() {
             <button
               onClick={() => selectGame('fallingblocks')}
               className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 ${
-                activeGameId === 'fallingblocks' ? 'text-blue-600 font-bold' : ''
+                activeGameId === 'fallingblocks' ? 'text-amber-600 font-bold' : ''
               }`}
             >
               Critter Drop
@@ -182,9 +212,9 @@ export default function App() {
               }}
               className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5"
             >
-              <span>Sticker Book</span>
+              <span>Stickers</span>
               <span className="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
-                {unlockedStickerCount}/6
+                {unlockedStickerCount}/8
               </span>
             </button>
           </nav>
@@ -255,6 +285,18 @@ export default function App() {
 
             {/* Active Game Canvas Component */}
             <div className="w-full">
+              {activeGameId === 'shapematch' && (
+                <ShapeMatchGame
+                  onGamePlay={() => handleGamePlay('shapematch')}
+                  onGameWin={() => handleGameWin('shapematch')}
+                />
+              )}
+              {activeGameId === 'balloonpop' && (
+                <BalloonPopGame
+                  onGamePlay={() => handleGamePlay('balloonpop')}
+                  onGameWin={() => handleGameWin('balloonpop')}
+                />
+              )}
               {activeGameId === 'colordash' && (
                 <ChameleonColorDashGame
                   onGamePlay={() => handleGamePlay('colordash')}
@@ -307,28 +349,28 @@ export default function App() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-blue-100 font-normal leading-relaxed mb-6">
-                  Powered by <strong>PixiJS v8</strong> graphics and 2D physics. Dash with color-mixing chameleons, draw bouncy rainbow trampolines, play pass-and-play local Tic Tac Toe, flip animal cards, and tumble whimsical physics critters!
+                  Powered by <strong>PixiJS v8</strong> graphics and 2D physics. Match vibrant shapes into shadows, pop spoken number balloons, dash with color-mixing chameleons, draw bouncy trampolines, and tumble physics critters!
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <button
-                    onClick={() => selectGame('colordash')}
-                    className="flex items-center gap-2 px-5 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-emerald-50 transition-all shadow-xs active:scale-95"
+                    onClick={() => selectGame('shapematch')}
+                    className="flex items-center gap-2 px-5 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-purple-50 transition-all shadow-xs active:scale-95"
                   >
-                    <span>Play Color Dash</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span>Play Shape Match</span>
+                    <ChevronRight className="w-4 h-4 text-purple-600" />
                   </button>
                   <button
-                    onClick={() => selectGame('jellybounce')}
+                    onClick={() => selectGame('balloonpop')}
                     className="flex items-center gap-2 px-5 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-xl transition-all shadow-xs active:scale-95"
                   >
-                    <span>Jelly Bounce Lab</span>
+                    <span>Balloon Number Pop</span>
                   </button>
                   <button
-                    onClick={() => selectGame('tictactoe')}
+                    onClick={() => selectGame('colordash')}
                     className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 transition-all active:scale-95"
                   >
-                    <span>Tic Tac Toe</span>
+                    <span>Color Dash</span>
                   </button>
                   <button
                     onClick={() => {
@@ -338,7 +380,7 @@ export default function App() {
                     className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 transition-all active:scale-95"
                   >
                     <Award className="w-4 h-4 text-amber-300" />
-                    <span>Sticker Book ({unlockedStickerCount}/6)</span>
+                    <span>Sticker Book ({unlockedStickerCount}/8)</span>
                   </button>
                 </div>
               </div>
@@ -426,7 +468,7 @@ export default function App() {
               }}
               className="hover:text-slate-800 font-medium transition-colors"
             >
-              Stickers ({unlockedStickerCount}/6)
+              Stickers ({unlockedStickerCount}/8)
             </button>
             <span aria-hidden="true">·</span>
             <span>Local Single Window Play</span>

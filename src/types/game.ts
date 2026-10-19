@@ -2,7 +2,14 @@
  * Game definitions, sticker achievements, and shared game types.
  */
 
-export type GameId = 'colordash' | 'jellybounce' | 'tictactoe' | 'memory' | 'fallingblocks';
+export type GameId =
+  | 'colordash'
+  | 'jellybounce'
+  | 'shapematch'
+  | 'balloonpop'
+  | 'tictactoe'
+  | 'memory'
+  | 'fallingblocks';
 
 export interface GameMetadata {
   id: GameId;
@@ -25,6 +32,26 @@ export interface StickerAchievement {
 }
 
 export const ARCADE_GAMES: GameMetadata[] = [
+  {
+    id: 'shapematch',
+    title: 'Shape & Shadow Match',
+    subtitle: 'Drag & Drop Geometry Puzzle',
+    description: 'Drag vibrant circles, squares, triangles, stars, and hexagons into their matching shadow silhouettes! Features satisfying snap-to-target physics, glowing halos, and multiple puzzle packs.',
+    playerMode: '1 Player',
+    targetAge: 'Ages 3-8',
+    accentColor: '#8b5cf6',
+    skills: ['Shape Recognition', 'Spatial Reasoning', 'Fine Motor Control'],
+  },
+  {
+    id: 'balloonpop',
+    title: 'Balloon Number Pop',
+    subtitle: 'Floating Math & Speech Fun',
+    description: 'Listen to the friendly audio voice call out numbers! Track and pop matching floating balloons before they drift away. Features native speech prompts, colorful pop particles, and wobble feedback.',
+    playerMode: '1 Player',
+    targetAge: 'Ages 3-9',
+    accentColor: '#f43f5e',
+    skills: ['Number Sense', 'Auditory Listening', 'Visual Tracking'],
+  },
   {
     id: 'colordash',
     title: 'Chameleon Color Dash',
@@ -86,6 +113,20 @@ export const INITIAL_STICKERS: StickerAchievement[] = [
     unlocked: false,
   },
   {
+    id: 'shape_wizard',
+    title: 'Shape Wizard',
+    description: 'Snapped all pieces into their shadow slots in Shape Match',
+    icon: '🔷',
+    unlocked: false,
+  },
+  {
+    id: 'balloon_master',
+    title: 'Balloon Maestro',
+    description: 'Successfully listened and popped target number balloons',
+    icon: '🎈',
+    unlocked: false,
+  },
+  {
     id: 'tic_win',
     title: 'Tic-Tac Champion',
     description: 'Achieved victory in a Tic Tac Toe match',
@@ -109,14 +150,14 @@ export const INITIAL_STICKERS: StickerAchievement[] = [
   {
     id: 'combo_king',
     title: 'Combo Popper',
-    description: 'Popped a combo in Critter Match mode',
+    description: 'Popped a combo in Critter Match or Chameleon Dash',
     icon: '💥',
     unlocked: false,
   },
   {
     id: 'curious_explorer',
     title: 'Grand Explorer',
-    description: 'Explored all three games in the arcade',
+    description: 'Explored multiple games across the arcade',
     icon: '🚀',
     unlocked: false,
   },
