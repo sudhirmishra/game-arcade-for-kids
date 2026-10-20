@@ -185,6 +185,11 @@ export const JellyBounceLabGame: React.FC<JellyBounceLabProps> = ({ onGameWin, o
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
 
+  const onGamePlayRef = useRef(onGamePlay);
+  onGamePlayRef.current = onGamePlay;
+  const onGameWinRef = useRef(onGameWin);
+  onGameWinRef.current = onGameWin;
+
   // Level & state
   const [currentLevelIdx, setCurrentLevelIdx] = useState<number>(0);
   const [levelWon, setLevelWon] = useState<boolean>(false);
@@ -230,7 +235,7 @@ export const JellyBounceLabGame: React.FC<JellyBounceLabProps> = ({ onGameWin, o
   // Drop jelly from pipe
   const dropJelly = useCallback(() => {
     if (!jellyRef.current) return;
-    onGamePlay?.();
+    onGamePlayRef.current?.();
     sound.playTap(620);
 
     const pipe = currentLevel.pipe;
@@ -246,7 +251,7 @@ export const JellyBounceLabGame: React.FC<JellyBounceLabProps> = ({ onGameWin, o
     jellyRef.current.container.visible = true;
 
     setIsJellyDropping(true);
-  }, [currentLevel, onGamePlay]);
+  }, [currentLevel]);
 
   // Reset current level
   const resetLevel = useCallback(() => {
@@ -944,7 +949,7 @@ export const JellyBounceLabGame: React.FC<JellyBounceLabProps> = ({ onGameWin, o
                 // VICTORY!
                 jelly.isWon = true;
                 setLevelWon(true);
-                onGameWin?.();
+                onGameWinRef.current?.();
                 sound.playWin();
 
                 // Strict Requirement: Particle explosion of colorful confetti using a pool of PIXI.Graphics stars
@@ -996,7 +1001,7 @@ export const JellyBounceLabGame: React.FC<JellyBounceLabProps> = ({ onGameWin, o
         appRef.current = null;
       }
     };
-  }, [currentLevelIdx, buildLevelScene, onGameWin]);
+  }, [currentLevelIdx, buildLevelScene]);
 
   const inkPercentage = Math.round((inkRemaining / currentLevel.maxInk) * 100);
 

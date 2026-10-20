@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle, Circle } from 'pixi.js';
 import confetti from 'canvas-confetti';
 import { sound } from '../../sound/soundEffects';
 import {
@@ -316,6 +316,13 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
   const appRef = useRef<Application | null>(null);
   const triggerHintRef = useRef<(() => void) | null>(null);
 
+  // Keep callback props in stable refs so they NEVER cause canvas unmount / teardown
+  const onGamePlayRef = useRef(onGamePlay);
+  onGamePlayRef.current = onGamePlay;
+  const onGameWinRef = useRef(onGameWin);
+  onGameWinRef.current = onGameWin;
+  const hasTriggeredPlayRef = useRef(false);
+
   const [currentLevelIndex, setCurrentLevelIndex] = useState<number>(0);
   const [matchedCount, setMatchedCount] = useState<number>(0);
   const [isLevelComplete, setIsLevelComplete] = useState<boolean>(false);
@@ -328,20 +335,22 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
 
   const resetCurrentLevel = useCallback(() => {
     sound.playTap(480);
+    hasTriggeredPlayRef.current = false;
     setMatchedCount(0);
     setIsLevelComplete(false);
     setHintActive(false);
     setResetKey((k) => k + 1);
   }, []);
 
-  const changeLevel = (newIdx: number) => {
+  const changeLevel = useCallback((newIdx: number) => {
     sound.playTap(540);
+    hasTriggeredPlayRef.current = false;
     setCurrentLevelIndex(newIdx);
     setMatchedCount(0);
     setIsLevelComplete(false);
     setHintActive(false);
     setResetKey((k) => k + 1);
-  };
+  }, []);
 
   const showHint = () => {
     sound.playTap(700);
@@ -357,7 +366,7 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
     let isDestroyed = false;
     const stageWidth = 800;
     const stageHeight = 460;
-    const SNAP_DISTANCE = 65;
+    const SNAP_DISTANCE = 95;
 
     const app = new Application();
     appRef.current = app;
@@ -381,6 +390,7 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
         app.canvas.style.width = '100%';
         app.canvas.style.height = '100%';
         app.canvas.style.display = 'block';
+        app.canvas.style.touchAction = 'none';
         containerRef.current.appendChild(app.canvas);
 
         const stage = app.stage;
@@ -455,7 +465,7 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
           sCont.position.set(cfg.targetPos.x, cfg.targetPos.y);
 
           const halo = new Graphics();
-          halo.circle(0, 0, 56).fill({ color: 0x22c55e, alpha: 0 }); // Hidden initially
+          halo.circle(0, 0, 58).fill({ color: 0x22c55e, alpha: 0 }); // Hidden initially
           sCont.addChild(halo);
 
           const sGfx = new Graphics();
@@ -485,6 +495,8 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
           cfg.draw(dGfx, false);
           dCont.addChild(dGfx);
 
+          // Generous hitArea so taps never miss thin borders or complex contours
+          dCont.hitArea = new Circle(0, 0, 52);
           dCont.eventMode = 'static';
           dCont.cursor = 'grab';
 
@@ -500,43 +512,80 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
 
           dCont.on('pointerdown', (e) => {
             if (item.matched || item.isReturning) return;
-            onGamePlay?.();
+            if (!hasTriggeredPlayRef.current) {
+              hasTriggeredPlayRef.current = true;
+              onGamePlayRef.current?.();
+            }
 
             activeDrag = item;
             dCont.cursor = 'grabbing';
             draggablesContainer.setChildIndex(dCont, draggablesContainer.children.length - 1);
-            dCont.scale.set(1.14);
+            dCont.scale.set(1.15);
 
             sound.playTap(620);
 
-            // In PixiJS v8, stage.toLocal converts global pointer coordinates to stage coordinates
-            const pos = stage.toLocal(e.global);
-            dragOffset.x = pos.x - dCont.x;
-            dragOffset.y = pos.y - dCont.y;
+            // In PixiJS v8, e.global gives canvas coordinates directly
+            const pointerX = e.global.x;
+            const pointerY = e.global.y;
+            dragOffset.x = pointerX - dCont.x;
+            dragOffset.y = pointerY - dCont.y;
           });
 
           draggablesContainer.addChild(dCont);
           draggables.push(item);
         });
 
-        // Stage pointermove: drag item and proximity scale
-        stage.on('pointermove', (e) => {
+        // Drag movement updater
+        const updateDragPosition = (stageX: number, stageY: number) => {
           if (!activeDrag) return;
 
-          const pos = stage.toLocal(e.global);
-          activeDrag.container.x = pos.x - dragOffset.x;
-          activeDrag.container.y = pos.y - dragOffset.y;
+          activeDrag.container.x = stageX - dragOffset.x;
+          activeDrag.container.y = stageY - dragOffset.y;
 
-          // Proximity effect on matching shadow
-          const matchingShadow = shadows.find((s) => s.id === activeDrag!.id);
-          if (matchingShadow) {
+          // Proximity magnet effect on matching shadow
+          shadows.forEach((s) => {
+            const isTarget = s.id === activeDrag!.id;
             const dist = Math.hypot(
-              activeDrag.container.x - matchingShadow.x,
-              activeDrag.container.y - matchingShadow.y
+              activeDrag!.container.x - s.x,
+              activeDrag!.container.y - s.y
             );
-            matchingShadow.container.scale.set(dist < SNAP_DISTANCE ? 1.08 : 1.0);
-          }
+
+            if (isTarget) {
+              if (dist < SNAP_DISTANCE) {
+                s.container.scale.set(1.12);
+                s.haloGfx.alpha = 0.75;
+              } else if (dist < 140) {
+                s.container.scale.set(1.05);
+                s.haloGfx.alpha = 0.35;
+              } else {
+                s.container.scale.set(1.0);
+                s.haloGfx.alpha = 0;
+              }
+            }
+          });
+        };
+
+        // Pointer move on Pixi canvas
+        stage.on('pointermove', (e) => {
+          if (!activeDrag) return;
+          updateDragPosition(e.global.x, e.global.y);
         });
+
+        stage.on('globalpointermove', (e) => {
+          if (!activeDrag) return;
+          updateDragPosition(e.global.x, e.global.y);
+        });
+
+        // Window pointermove for bulletproof tracking even outside the canvas element
+        const onWindowPointerMove = (e: PointerEvent) => {
+          if (!activeDrag || !app.canvas) return;
+          const rect = app.canvas.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return;
+          const stageX = (e.clientX - rect.left) * (stageWidth / rect.width);
+          const stageY = (e.clientY - rect.top) * (stageHeight / rect.height);
+          updateDragPosition(stageX, stageY);
+        };
+        window.addEventListener('pointermove', onWindowPointerMove);
 
         // Pointer up: snap check
         const onPointerUp = () => {
@@ -548,75 +597,93 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
           item.container.cursor = 'grab';
           item.container.scale.set(1.0);
 
+          // Reset all shadow hover scales
+          shadows.forEach((s) => {
+            s.container.scale.set(1.0);
+            s.haloGfx.alpha = 0;
+          });
+
           const shadow = shadows.find((s) => s.id === item.id);
-          if (shadow) shadow.container.scale.set(1.0);
+          const dist = shadow
+            ? Math.hypot(item.container.x - shadow.x, item.container.y - shadow.y)
+            : 9999;
 
-          if (shadow) {
-            const dist = Math.hypot(
-              item.container.x - shadow.x,
-              item.container.y - shadow.y
-            );
+          if (shadow && dist <= SNAP_DISTANCE) {
+            // SNAP SUCCESS!
+            item.matched = true;
+            item.container.x = shadow.x;
+            item.container.y = shadow.y;
+            item.container.cursor = 'default';
+            item.container.eventMode = 'none';
 
-            if (dist <= SNAP_DISTANCE) {
-              // SNAP SUCCESS!
-              item.matched = true;
-              item.container.x = shadow.x;
-              item.container.y = shadow.y;
-              item.container.cursor = 'default';
-              item.container.eventMode = 'none';
+            // Audio pop & fanfare
+            sound.playBubblePop();
+            sound.playStarCollect(matchedSoFar);
 
-              // Audio pop & fanfare
-              sound.playBubblePop();
-              sound.playStarCollect(matchedSoFar);
-
-              // Visual 1: Pulsing bounce scale
-              let tick = 0;
-              const pulse = (ticker: { deltaTime: number }) => {
-                tick += 0.22 * ticker.deltaTime;
-                item.container.scale.set(1 + Math.sin(tick) * 0.16);
-                if (tick >= Math.PI) {
-                  item.container.scale.set(1.0);
-                  app.ticker.remove(pulse);
-                }
-              };
-              app.ticker.add(pulse);
-
-              // Visual 2: Halo illumination
-              shadow.haloGfx.alpha = 0.45;
-
-              // Visual 3: Floating text
-              spawnFloatingText(item.container.x, item.container.y - 45, `✓ ${item.name}!`);
-
-              matchedSoFar++;
-              setMatchedCount(matchedSoFar);
-              setScore((s) => s + 150);
-
-              if (matchedSoFar === level.shapes.length) {
-                // LEVEL COMPLETE!
-                setIsLevelComplete(true);
-                sound.playWin();
-                onGameWin?.();
-                confetti({
-                  particleCount: 75,
-                  spread: 60,
-                  origin: { y: 0.6 },
-                });
+            // Visual 1: Pulsing bounce scale
+            let tick = 0;
+            const pulse = (ticker: { deltaTime: number }) => {
+              tick += 0.22 * ticker.deltaTime;
+              item.container.scale.set(1 + Math.sin(tick) * 0.18);
+              if (tick >= Math.PI) {
+                item.container.scale.set(1.0);
+                app.ticker.remove(pulse);
               }
-              return;
+            };
+            app.ticker.add(pulse);
+
+            // Visual 2: Halo illumination
+            shadow.haloGfx.alpha = 0.55;
+
+            // Visual 3: Floating text
+            spawnFloatingText(item.container.x, item.container.y - 48, `✓ ${item.name}!`);
+
+            matchedSoFar++;
+            setMatchedCount(matchedSoFar);
+            setScore((s) => s + 150);
+
+            if (matchedSoFar === level.shapes.length) {
+              // LEVEL COMPLETE!
+              setIsLevelComplete(true);
+              sound.playWin();
+              onGameWinRef.current?.();
+              confetti({
+                particleCount: 75,
+                spread: 60,
+                origin: { y: 0.6 },
+              });
             }
+            return;
           }
 
-          // Miss: Lerp back to start
+          // Check if dropped near a wrong shadow for friendly helper feedback
+          const wrongShadow = shadows.find((s) => {
+            if (s.id === item.id) return false;
+            return Math.hypot(item.container.x - s.x, item.container.y - s.y) <= SNAP_DISTANCE;
+          });
+
+          if (wrongShadow) {
+            sound.playTap(260);
+            spawnFloatingText(item.container.x, item.container.y - 40, `Not quite!`);
+          } else {
+            sound.playTap(380);
+          }
+
+          // Smooth cubic ease-out return animation
           item.isReturning = true;
           item.container.cursor = 'not-allowed';
-          sound.playTap(380);
 
+          let returnElapsed = 0;
+          const startX = item.container.x;
+          const startY = item.container.y;
           const returnTicker = (ticker: { deltaTime: number }) => {
-            const dt = ticker.deltaTime;
-            item.container.x += (item.initialX - item.container.x) * (0.22 * dt);
-            item.container.y += (item.initialY - item.container.y) * (0.22 * dt);
+            returnElapsed += 0.08 * ticker.deltaTime;
+            const t = Math.min(1, returnElapsed);
+            const ease = 1 - Math.pow(1 - t, 3);
+            item.container.x = startX + (item.initialX - startX) * ease;
+            item.container.y = startY + (item.initialY - startY) * ease;
 
-            if (Math.hypot(item.container.x - item.initialX, item.container.y - item.initialY) < 1.0) {
+            if (t >= 1) {
               item.container.x = item.initialX;
               item.container.y = item.initialY;
               item.isReturning = false;
@@ -634,6 +701,7 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
         window.addEventListener('pointerup', onPointerUp);
         cleanupWindowListener = () => {
           window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('pointermove', onWindowPointerMove);
         };
 
         // Hint trigger handler
@@ -704,7 +772,7 @@ export const ShapeMatchGame: React.FC<ShapeMatchGameProps> = ({ onGameWin, onGam
         appRef.current = null;
       }
     };
-  }, [currentLevelIndex, level, resetKey, onGamePlay, onGameWin]);
+  }, [currentLevelIndex, resetKey]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none">

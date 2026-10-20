@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GameId, ARCADE_GAMES, INITIAL_STICKERS, StickerAchievement } from './types/game';
 import { TicTacToeGame } from './components/games/TicTacToeGame';
 import { MemoryGame } from './components/games/MemoryGame';
@@ -49,35 +49,46 @@ export default function App() {
   });
 
   // Save stickers to localStorage
-  const unlockSticker = (stickerId: string) => {
+  const unlockSticker = useCallback((stickerId: string) => {
     setStickers((prev) => {
+      const target = prev.find((s) => s.id === stickerId);
+      if (!target || target.unlocked) return prev; // Do not trigger state update if already unlocked
+      sound.playWin();
       const updated = prev.map((s) => {
-        if (s.id === stickerId && !s.unlocked) {
-          sound.playWin();
+        if (s.id === stickerId) {
           return { ...s, unlocked: true, unlockedAt: new Date().toISOString() };
         }
         return s;
       });
-      localStorage.setItem('wonderpix_stickers', JSON.stringify(updated));
+      try {
+        localStorage.setItem('wonderpix_stickers', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
       return updated;
     });
-  };
+  }, []);
 
   // Track gameplay for sticker achievements
-  const handleGamePlay = (gameId: GameId) => {
+  const handleGamePlay = useCallback((gameId: GameId) => {
     unlockSticker('first_play');
     setPlayedGames((prev) => {
+      if (prev.has(gameId)) return prev; // Do not trigger state update if already played
       const next = new Set(prev);
       next.add(gameId);
-      localStorage.setItem('wonderpix_played_games', JSON.stringify(Array.from(next)));
+      try {
+        localStorage.setItem('wonderpix_played_games', JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
       if (next.size >= 3) {
         unlockSticker('curious_explorer');
       }
       return next;
     });
-  };
+  }, [unlockSticker]);
 
-  const handleGameWin = (gameId: GameId) => {
+  const handleGameWin = useCallback((gameId: GameId) => {
     if (gameId === 'shapematch') {
       unlockSticker('shape_wizard');
     } else if (gameId === 'balloonpop') {
@@ -93,7 +104,7 @@ export default function App() {
     } else if (gameId === 'fallingblocks') {
       unlockSticker('combo_king');
     }
-  };
+  }, [unlockSticker]);
 
   const selectGame = (id: GameId | null) => {
     sound.playTap(520);

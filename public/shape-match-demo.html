@@ -78,7 +78,7 @@
       // -------------------------------------------------------------
       const GAME_WIDTH = 800;
       const GAME_HEIGHT = 460;
-      const SNAP_DISTANCE = 65; // Pixel threshold to snap into shadow slot
+      const SNAP_DISTANCE = 95; // Pixel threshold to snap into shadow slot
 
       const app = new PIXI.Application();
       await app.init({
@@ -273,7 +273,8 @@
         shapeContainer.bodyGfx = shapeGfx;
         shapeContainer.config = config;
 
-        // Enable static event mode for interactive pointer events
+        // Enable static event mode and generous hit area
+        shapeContainer.hitArea = new PIXI.Circle(0, 0, 52);
         shapeContainer.eventMode = 'static';
         shapeContainer.cursor = 'grab';
 
@@ -288,9 +289,8 @@
           shapesContainer.setChildIndex(shapeContainer, shapesContainer.children.length - 1);
 
           // Subtle squash & stretch / lift animation
-          shapeContainer.scale.set(1.12);
+          shapeContainer.scale.set(1.15);
 
-          // Compute offset so shape doesn't awkwardly jump center to cursor
           // In PixiJS v8, use app.stage.toLocal(e.global)
           const pointerPos = app.stage.toLocal(e.global);
           dragOffset.x = pointerPos.x - shapeContainer.x;
@@ -301,24 +301,42 @@
         draggables.push(shapeContainer);
       });
 
-      // --- POINTER MOVE: Move Dragged Item Smoothly ---
-      app.stage.on('pointermove', (e) => {
+      // --- DRAG MOVE UPDATER ---
+      function handleDragMove(stageX, stageY) {
         if (!currentDragItem) return;
 
-        const pointerPos = app.stage.toLocal(e.global);
-        currentDragItem.x = pointerPos.x - dragOffset.x;
-        currentDragItem.y = pointerPos.y - dragOffset.y;
+        currentDragItem.x = stageX - dragOffset.x;
+        currentDragItem.y = stageY - dragOffset.y;
 
-        // Optional: proximity glow on matching shadow slot while dragging near
-        const matchingShadow = shadows.find((s) => s.shapeId === currentDragItem.shapeId);
-        if (matchingShadow) {
-          const dist = Math.hypot(currentDragItem.x - matchingShadow.x, currentDragItem.y - matchingShadow.y);
-          if (dist < SNAP_DISTANCE) {
-            matchingShadow.scale.set(1.08);
-          } else {
-            matchingShadow.scale.set(1.0);
+        // Proximity glow on matching shadow slot while dragging near
+        shadows.forEach((s) => {
+          const isTarget = s.shapeId === currentDragItem.shapeId;
+          const dist = Math.hypot(currentDragItem.x - s.x, currentDragItem.y - s.y);
+          if (isTarget) {
+            s.scale.set(dist < SNAP_DISTANCE ? 1.12 : 1.0);
           }
-        }
+        });
+      }
+
+      app.stage.on('pointermove', (e) => {
+        if (!currentDragItem) return;
+        const pointerPos = app.stage.toLocal(e.global);
+        handleDragMove(pointerPos.x, pointerPos.y);
+      });
+
+      app.stage.on('globalpointermove', (e) => {
+        if (!currentDragItem) return;
+        const pointerPos = app.stage.toLocal(e.global);
+        handleDragMove(pointerPos.x, pointerPos.y);
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!currentDragItem || !app.canvas) return;
+        const rect = app.canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const stageX = (e.clientX - rect.left) * (800 / rect.width);
+        const stageY = (e.clientY - rect.top) * (460 / rect.height);
+        handleDragMove(stageX, stageY);
       });
 
       // --- POINTER UP: Drop and Snap-to-Target Collision Check ---

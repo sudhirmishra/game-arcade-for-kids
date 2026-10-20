@@ -71,6 +71,11 @@ export const BalloonPopGame: React.FC<BalloonPopProps> = ({ onGameWin, onGamePla
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
 
+  const onGamePlayRef = useRef(onGamePlay);
+  onGamePlayRef.current = onGamePlay;
+  const onGameWinRef = useRef(onGameWin);
+  onGameWinRef.current = onGameWin;
+
   // Difficulty & Target states
   const [difficultyIdx, setDifficultyIdx] = useState<number>(0);
   const [targetNumber, setTargetNumber] = useState<number>(3);
@@ -381,7 +386,7 @@ export const BalloonPopGame: React.FC<BalloonPopProps> = ({ onGameWin, onGamePla
           // Tap / Click Interaction Handlers
           bCont.on('pointerdown', () => {
             if (!balloonItem.active || balloonItem.isPopping) return;
-            onGamePlay?.();
+            onGamePlayRef.current?.();
 
             const isTarget = balloonItem.number === targetNumberRef.current;
 
@@ -432,7 +437,7 @@ export const BalloonPopGame: React.FC<BalloonPopProps> = ({ onGameWin, onGamePla
 
               // Win achievement threshold
               if (poppedCountRef.current === 8) {
-                onGameWin?.();
+                onGameWinRef.current?.();
                 confetti({
                   particleCount: 60,
                   spread: 60,
@@ -565,7 +570,7 @@ export const BalloonPopGame: React.FC<BalloonPopProps> = ({ onGameWin, onGamePla
         appRef.current = null;
       }
     };
-  }, [speakTarget, onGamePlay, onGameWin, highScore]);
+  }, [speakTarget]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none">
