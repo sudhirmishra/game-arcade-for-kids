@@ -1,5 +1,0 @@
-User-agent: *
-
-allow: /ads.txt
-
-Sitemap: https://www.funbrain.com/sitemap.xml
