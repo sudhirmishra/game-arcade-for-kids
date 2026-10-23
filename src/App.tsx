@@ -7,6 +7,7 @@ import { JellyBounceLabGame } from './components/games/JellyBounceLabGame';
 import { ChameleonColorDashGame } from './components/games/ChameleonColorDashGame';
 import { ShapeMatchGame } from './components/games/ShapeMatchGame';
 import { BalloonPopGame } from './components/games/BalloonPopGame';
+import { DesertDiveGame } from './components/games/DesertDiveGame';
 import { GameCard } from './components/GameCard';
 import { StickerModal } from './components/StickerModal';
 import { AudioControls } from './components/AudioControls';
@@ -296,6 +297,12 @@ export default function App() {
 
             {/* Active Game Canvas Component */}
             <div className="w-full">
+              {activeGameId === 'desertdive' && (
+                <DesertDiveGame
+                  onGamePlay={() => handleGamePlay('desertdive')}
+                  onGameWin={() => handleGameWin('desertdive')}
+                />
+              )}
               {activeGameId === 'shapematch' && (
                 <ShapeMatchGame
                   onGamePlay={() => handleGamePlay('shapematch')}

@@ -3,6 +3,7 @@
  */
 
 export type GameId =
+  | 'desertdive'
   | 'colordash'
   | 'jellybounce'
   | 'shapematch'
@@ -32,6 +33,16 @@ export interface StickerAchievement {
 }
 
 export const ARCADE_GAMES: GameMetadata[] = [
+  {
+    id: 'desertdive',
+    title: 'Desert Dive',
+    subtitle: 'Classic Catapult Oasis Jump',
+    description: 'Help Big Blue catapult his friend across the desert into the refreshing pool! Drag Big Blue to aim and launch with just the right power to make 5 perfect splash landings.',
+    playerMode: '1 Player',
+    targetAge: 'Ages 4-10',
+    accentColor: '#f59e0b',
+    skills: ['Trajectory Estimation', 'Mouse Skills', 'Physics Timing'],
+  },
   {
     id: 'shapematch',
     title: 'Shape & Shadow Match',

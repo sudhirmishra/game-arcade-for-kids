@@ -1,0 +1,28 @@
+{"frames": {
+
+"CloseBtn.png":
+{
+	"frame": {"x":2,"y":2,"w":39,"h":39},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":39,"h":39},
+	"sourceSize": {"w":39,"h":39}
+},
+"CloseBtnDown.png":
+{
+	"frame": {"x":43,"y":2,"w":39,"h":39},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":39,"h":39},
+	"sourceSize": {"w":39,"h":39}
+}},
+"meta": {
+	"app": "http://www.codeandweb.com/texturepacker ",
+	"version": "1.0",
+	"image": "doneButton.png",
+	"format": "RGBA8888",
+	"size": {"w":84,"h":43},
+	"scale": "0.25",
+	"smartupdate": "$TexturePacker:SmartUpdate:c3be74c3b8640b26ff04a61ae8dc864d:5ad51cfb6688c9d280e7ee1d3acbb06a:48e960abd9cdce2cec5119eac2360f1f$"
+}
+}
