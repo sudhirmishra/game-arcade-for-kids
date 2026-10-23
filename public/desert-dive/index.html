@@ -37,6 +37,13 @@
                 max-height: 100% !important;
             }
         </style>
+
+        <!-- Dummy stub for legacy tracking so main.js doesn't throw ReferenceError -->
+        <script type="text/javascript">
+            window.brainEventTracker = {
+                logGameEvent: function() {}
+            };
+        </script>
     </head>
 
     <body>
